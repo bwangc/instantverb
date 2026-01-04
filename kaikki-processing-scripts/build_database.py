@@ -95,12 +95,13 @@ def simplify_entry(entry: dict) -> dict:
                 result['gender'] = 'f'
                 break
 
-    # Auxiliary for verbs (être vs avoir)
+    # Auxiliary and irregularity for verbs
     if entry.get('pos') == 'verb':
         for cat in entry.get('categories', []):
             if 'verbs taking être as auxiliary' in cat.lower():
                 result['aux'] = 'être'
-                break
+            if cat == 'French irregular verbs':
+                result['irregular'] = True
 
     return result
 

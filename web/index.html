@@ -221,6 +221,10 @@
             color: #a5b4fc;
         }
 
+        .conjugation-tables .irregular {
+            color: #a5b4fc;
+        }
+
         .etymology {
             font-size: 0.85rem;
             color: #888;
@@ -477,6 +481,7 @@
 
         function buildConjugationTables(entry) {
             const forms = entry.forms;
+            const word = entry.word;
             const persons = ['je', 'tu', 'il/elle', 'nous', 'vous', 'ils/elles'];
             const personTags = [
                 ['first-person', 'singular'],
@@ -486,6 +491,51 @@
                 ['second-person', 'plural'],
                 ['third-person', 'plural']
             ];
+
+            // Generate naive regular forms for comparison
+            function getNaiveForm(tenseKey, personIdx) {
+                if (!word.endsWith('er') && !word.endsWith('ir') && !word.endsWith('re')) return null;
+
+                let stem;
+                const endings = {
+                    er: {
+                        pres: ['e', 'es', 'e', 'ons', 'ez', 'ent'],
+                        imp: ['ais', 'ais', 'ait', 'ions', 'iez', 'aient'],
+                        fut: ['erai', 'eras', 'era', 'erons', 'erez', 'eront'],
+                        cond: ['erais', 'erais', 'erait', 'erions', 'eriez', 'eraient'],
+                        subj: ['e', 'es', 'e', 'ions', 'iez', 'ent'],
+                        psim: ['ai', 'as', 'a', 'âmes', 'âtes', 'èrent'],
+                        simp: ['asse', 'asses', 'ât', 'assions', 'assiez', 'assent'],
+                    },
+                    ir: {
+                        pres: ['is', 'is', 'it', 'issons', 'issez', 'issent'],
+                        imp: ['issais', 'issais', 'issait', 'issions', 'issiez', 'issaient'],
+                        fut: ['irai', 'iras', 'ira', 'irons', 'irez', 'iront'],
+                        cond: ['irais', 'irais', 'irait', 'irions', 'iriez', 'iraient'],
+                        subj: ['isse', 'isses', 'isse', 'issions', 'issiez', 'issent'],
+                        psim: ['is', 'is', 'it', 'îmes', 'îtes', 'irent'],
+                        simp: ['isse', 'isses', 'ît', 'issions', 'issiez', 'issent'],
+                    },
+                    re: {
+                        pres: ['s', 's', '', 'ons', 'ez', 'ent'],
+                        imp: ['ais', 'ais', 'ait', 'ions', 'iez', 'aient'],
+                        fut: ['rai', 'ras', 'ra', 'rons', 'rez', 'ront'],
+                        cond: ['rais', 'rais', 'rait', 'rions', 'riez', 'raient'],
+                        subj: ['e', 'es', 'e', 'ions', 'iez', 'ent'],
+                        psim: ['is', 'is', 'it', 'îmes', 'îtes', 'irent'],
+                        simp: ['isse', 'isses', 'ît', 'issions', 'issiez', 'issent'],
+                    }
+                };
+
+                let type, endingSet;
+                if (word.endsWith('er')) { type = 'er'; stem = word.slice(0, -2); endingSet = endings.er; }
+                else if (word.endsWith('ir')) { type = 'ir'; stem = word.slice(0, -2); endingSet = endings.ir; }
+                else if (word.endsWith('re')) { type = 're'; stem = word.slice(0, -2); endingSet = endings.re; }
+                else return null;
+
+                if (!endingSet[tenseKey]) return null;
+                return stem + endingSet[tenseKey][personIdx];
+            }
 
             // Helper to find form by tags
             function getForm(requiredTags, personIdx) {
@@ -502,13 +552,21 @@
             const presentPart = forms.find(f => f.tags?.includes('participle') && f.tags?.includes('present'));
             const pastPart = forms.find(f => f.tags?.includes('participle') && f.tags?.includes('past'));
 
+            // Check if form is irregular by comparing to naive regular form
+            function isFormIrregular(form, tenseKey, personIdx) {
+                if (form === '—') return false;
+                const naive = getNaiveForm(tenseKey, personIdx);
+                if (!naive) return false; // Can't determine, don't highlight
+                return form.toLowerCase() !== naive.toLowerCase();
+            }
+
             // Table 1: Main tenses
             const mainTenses = [
-                { tags: ['indicative', 'present'], name: 'Prés' },
-                { tags: ['indicative', 'imperfect'], name: 'Imp' },
-                { tags: ['indicative', 'future'], name: 'Fut' },
-                { tags: ['conditional'], name: 'Cond' },
-                { tags: ['subjunctive', 'present'], name: 'Subj' },
+                { tags: ['indicative', 'present'], name: 'Prés', key: 'pres' },
+                { tags: ['indicative', 'imperfect'], name: 'Imp', key: 'imp' },
+                { tags: ['indicative', 'future'], name: 'Fut', key: 'fut' },
+                { tags: ['conditional'], name: 'Cond', key: 'cond' },
+                { tags: ['subjunctive', 'present'], name: 'Subj', key: 'subj' },
             ];
 
             let html = '<div class="conjugation-tables">';
@@ -525,7 +583,9 @@
                 html += `<tr${zebra}>`;
                 html += `<td class="person-label">${persons[i]}</td>`;
                 for (const t of mainTenses) {
-                    html += `<td>${getForm(t.tags, i)}</td>`;
+                    const form = getForm(t.tags, i);
+                    const cls = isFormIrregular(form, t.key, i) ? ' class="irregular"' : '';
+                    html += `<td${cls}>${form}</td>`;
                 }
                 html += '</tr>';
             }
@@ -533,8 +593,8 @@
 
             // Table 2: Extra tenses
             const extraTenses = [
-                { tags: ['indicative', 'historic', 'past'], name: 'P.Sim' },
-                { tags: ['subjunctive', 'imperfect'], name: 'S.Imp' },
+                { tags: ['indicative', 'historic', 'past'], name: 'P.Sim', key: 'psim' },
+                { tags: ['subjunctive', 'imperfect'], name: 'S.Imp', key: 'simp' },
             ];
 
             // Get imperative forms (only tu, nous, vous)
@@ -557,9 +617,44 @@
                 passeCompose = avoirForms.map(aux => `${aux} ${pp}`);
             }
 
+            // Check if past participle is irregular (compare to regular -é/-i/-u)
+            function isPPIrregular() {
+                if (!pp || pp === '—') return false;
+                if (word.endsWith('er')) return pp !== word.slice(0, -2) + 'é';
+                if (word.endsWith('ir')) return pp !== word.slice(0, -2) + 'i';
+                if (word.endsWith('re')) return pp !== word.slice(0, -2) + 'u';
+                return false;
+            }
+
+            // Check if present participle is irregular
+            function isPresentPartIrregular() {
+                if (!presentPart?.form) return false;
+                const stem = word.endsWith('er') ? word.slice(0, -2) :
+                            word.endsWith('ir') ? word.slice(0, -2) + 'iss' :
+                            word.endsWith('re') ? word.slice(0, -2) : null;
+                if (!stem) return false;
+                return presentPart.form !== stem + 'ant';
+            }
+
+            // Check if imperative is irregular (based on present tense)
+            function isImperIrregular(imperForm, personIdx) {
+                if (!imperForm || imperForm === '—') return false;
+                // Map imperative person to present tense person index
+                // tu -> 1, nous -> 3, vous -> 4
+                const naive = getNaiveForm('pres', personIdx);
+                if (!naive) return false;
+                // For -er verbs, imperative tu drops the 's' (parle vs parles)
+                let expected = naive;
+                if (word.endsWith('er') && personIdx === 1) {
+                    expected = naive.slice(0, -1); // Remove final 's'
+                }
+                return imperForm.toLowerCase() !== expected.toLowerCase();
+            }
+
             html += '<table>';
             html += '<tr>';
-            html += `<th class="inf-cell">${presentPart?.form || '—'}</th>`;
+            const ppCls = isPresentPartIrregular() ? ' class="irregular"' : '';
+            html += `<th class="inf-cell"${ppCls}>${presentPart?.form || '—'}</th>`;
             html += `<th>P.Comp</th>`;
             for (const t of extraTenses) {
                 html += `<th>${t.name}</th>`;
@@ -568,18 +663,25 @@
             html += '</tr>';
 
             const imperPersonIdx = [1, 3, 4]; // tu, nous, vous
+            const ppIrr = isPPIrregular();
             for (let i = 0; i < 6; i++) {
                 const zebra = i % 2 === 0 ? ' class="zebra"' : '';
                 html += `<tr${zebra}>`;
                 html += `<td class="person-label">${persons[i]}</td>`;
-                html += `<td>${passeCompose[i]}</td>`;
+                // Passé composé - highlight if être verb or irregular past participle
+                const pcCls = (usesEtre || ppIrr) ? ' class="irregular"' : '';
+                html += `<td${pcCls}>${passeCompose[i]}</td>`;
                 for (const t of extraTenses) {
-                    html += `<td>${getForm(t.tags, i)}</td>`;
+                    const form = getForm(t.tags, i);
+                    const cls = isFormIrregular(form, t.key, i) ? ' class="irregular"' : '';
+                    html += `<td${cls}>${form}</td>`;
                 }
                 // Imperative only for tu (1), nous (3), vous (4)
                 const imperIdx = imperPersonIdx.indexOf(i);
-                const imperForm = imperIdx >= 0 && imperForms[imperIdx]?.form ? imperForms[imperIdx].form + ' !' : '—';
-                html += `<td>${imperForm}</td>`;
+                const imperFormRaw = imperIdx >= 0 && imperForms[imperIdx]?.form ? imperForms[imperIdx].form : null;
+                const imperForm = imperFormRaw ? imperFormRaw + ' !' : '—';
+                const impCls = isImperIrregular(imperFormRaw, imperPersonIdx[imperIdx]) ? ' class="irregular"' : '';
+                html += `<td${impCls}>${imperForm}</td>`;
                 html += '</tr>';
             }
             html += '</table>';

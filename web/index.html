@@ -233,6 +233,24 @@
             border-top: 1px solid #3a3a5e;
         }
 
+        .etymology-text {
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+        }
+
+        .etymology-text.collapsed {
+            max-height: 150px;
+        }
+
+        .etymology-text.expanded {
+            max-height: 2000px;
+        }
+
+        .etymology-text.hidden {
+            max-height: 0;
+            opacity: 0;
+        }
+
         .etymology-text p {
             margin: 0 0 8px 0;
         }
@@ -363,9 +381,9 @@
                 html += `<div class="etymology">`;
                 if (hasMore) {
                     // Collapsed view: first para with toggle inline at end
-                    html += `<div id="${etymId}" class="etymology-text"><p>${paras[0]}<span class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span></p></div>`;
+                    html += `<div id="${etymId}" class="etymology-text collapsed"><p>${paras[0]}<span class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span></p></div>`;
                     // Expanded view: all paras with toggle inline at end of last
-                    html += `<div id="${etymId}-full" class="etymology-text" style="display:none">`;
+                    html += `<div id="${etymId}-full" class="etymology-text expanded hidden">`;
                     for (let i = 0; i < paras.length; i++) {
                         if (i === paras.length - 1) {
                             html += `<p>${paras[i]}<span class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9650;</span></p>`;
@@ -458,12 +476,12 @@
         function toggleEtym(id) {
             const short = document.getElementById(id);
             const full = document.getElementById(id + '-full');
-            if (short.style.display === 'none') {
-                short.style.display = '';
-                full.style.display = 'none';
+            if (full.classList.contains('hidden')) {
+                short.classList.add('hidden');
+                full.classList.remove('hidden');
             } else {
-                short.style.display = 'none';
-                full.style.display = '';
+                short.classList.remove('hidden');
+                full.classList.add('hidden');
             }
         }
 

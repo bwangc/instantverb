@@ -636,17 +636,18 @@
                 return presentPart.form !== stem + 'ant';
             }
 
-            // Check if imperative is irregular (based on present tense)
+            // Check if imperative is irregular (compare against actual present)
+            // Philosophy: if imperative matches actual present, don't highlight
+            // (since you already learned the present form)
             function isImperIrregular(imperForm, personIdx) {
                 if (!imperForm || imperForm === '—') return false;
-                // Map imperative person to present tense person index
-                // tu -> 1, nous -> 3, vous -> 4
-                const naive = getNaiveForm('pres', personIdx);
-                if (!naive) return false;
+                // Get actual present form from database
+                const actualPres = getForm(['indicative', 'present'], personIdx);
+                if (actualPres === '—') return false;
                 // For -er verbs, imperative tu drops the 's' (parle vs parles)
-                let expected = naive;
-                if (word.endsWith('er') && personIdx === 1) {
-                    expected = naive.slice(0, -1); // Remove final 's'
+                let expected = actualPres;
+                if (word.endsWith('er') && personIdx === 1 && actualPres.endsWith('s')) {
+                    expected = actualPres.slice(0, -1);
                 }
                 return imperForm.toLowerCase() !== expected.toLowerCase();
             }

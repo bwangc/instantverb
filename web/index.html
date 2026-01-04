@@ -365,7 +365,8 @@
                 html += `<button class="audio-btn" onclick="playAudio('${entry.audio}')">&#9658; Play</button>`;
             }
             if (entry.pos === 'verb' && entry.forms && entry.forms.length > 0) {
-                html += `<button class="conjugate-btn" onclick="toggleConjugation('${entryId}', '${entry.word}')">Conjugate</button>`;
+                const escapedWord = entry.word.replace(/'/g, "\\'");
+                html += `<button class="conjugate-btn" onclick="toggleConjugation('${entryId}', '${escapedWord}')">Conjugate</button>`;
             }
             html += `</div>`;
 
@@ -423,56 +424,69 @@
 
             container.classList.add('has-results');
 
-            // Direct match
-            let entries = dict.words[query] ? [...dict.words[query]] : [];
-            let viaForm = null;
-            let verbEntries = [];
-
-            // Always check conjugated forms (even if direct match exists)
-            if (formIndex) {
-                const formMatch = findForm(query);
-                const infinitives = formMatch ? formIndex[formMatch] : null;
-                if (infinitives && infinitives.length > 0) {
-                    viaForm = formMatch;
-                    // Get verb entries for all matching infinitives
-                    for (const inf of infinitives) {
-                        if (dict.words[inf]) {
-                            verbEntries.push(...dict.words[inf]);
-                        }
-                    }
-                    // Sort: present tense forms first
-                    verbEntries.sort((a, b) => {
-                        const aForm = a.forms?.find(f => f.form?.toLowerCase() === viaForm);
-                        const bForm = b.forms?.find(f => f.form?.toLowerCase() === viaForm);
-                        const aPresent = aForm?.tags?.includes('present') ? 0 : 1;
-                        const bPresent = bForm?.tags?.includes('present') ? 0 : 1;
-                        return aPresent - bPresent;
-                    });
+            // Find ALL matching words (accent-insensitive)
+            const matchingWords = findAllWords(query);
+            let entries = [];
+            for (const word of matchingWords) {
+                if (dict.words[word]) {
+                    entries.push(...dict.words[word]);
                 }
             }
 
-            // Combine: show conjugation note + verb entries first, then direct matches
-            const allEntries = [...verbEntries, ...entries];
+            let verbEntries = [];
+            let formNotes = [];  // Array of {form, audioUrl, infList}
+
+            // Check ALL matching conjugated forms
+            if (formIndex) {
+                const matchingForms = findAllForms(query);
+                for (const formMatch of matchingForms) {
+                    const infinitives = formIndex[formMatch];
+                    if (infinitives && infinitives.length > 0) {
+                        const formVerbEntries = [];
+                        for (const inf of infinitives) {
+                            if (dict.words[inf]) {
+                                formVerbEntries.push(...dict.words[inf]);
+                            }
+                        }
+                        // Sort: present tense forms first
+                        formVerbEntries.sort((a, b) => {
+                            const aForm = a.forms?.find(f => f.form?.toLowerCase() === formMatch);
+                            const bForm = b.forms?.find(f => f.form?.toLowerCase() === formMatch);
+                            const aPresent = aForm?.tags?.includes('present') ? 0 : 1;
+                            const bPresent = bForm?.tags?.includes('present') ? 0 : 1;
+                            return aPresent - bPresent;
+                        });
+                        verbEntries.push(...formVerbEntries);
+
+                        // Build note for this form
+                        const audioUrl = formAudio ? formAudio[formMatch] : null;
+                        const infList = formVerbEntries.map(e => e.word).filter((v,i,a) => a.indexOf(v) === i).map(inf => {
+                            const entry = formVerbEntries.find(e => e.word === inf && e.forms);
+                            if (entry) {
+                                const formData = entry.forms.find(f => f.form && f.form.toLowerCase() === formMatch);
+                                if (formData && formData.tags) {
+                                    const tags = formData.tags.filter(t => !['indicative', 'subjunctive', 'conditional', 'imperative'].includes(t));
+                                    return `${inf} (${tags.join(' ')})`;
+                                }
+                            }
+                            return inf;
+                        }).join(', ');
+                        formNotes.push({ form: formMatch, audioUrl, infList });
+                    }
+                }
+            }
+
+            // Combine: verb entries first, then direct matches (deduplicated)
+            const seenWords = new Set(verbEntries.map(e => e.word + e.pos));
+            const dedupedEntries = entries.filter(e => !seenWords.has(e.word + e.pos));
+            const allEntries = [...verbEntries, ...dedupedEntries];
 
             if (allEntries.length > 0) {
                 let html = '';
-                if (viaForm && verbEntries.length > 0) {
-                    const audioUrl = formAudio ? formAudio[viaForm] : null;
-                    const audioBtn = audioUrl ? ` <button class="audio-btn" onclick="playAudio('${audioUrl}')">&#9658;</button>` : '';
-                    // Build infinitive list with form tags (already sorted by present first)
-                    const infList = verbEntries.map(e => e.word).filter((v,i,a) => a.indexOf(v) === i).map(inf => {
-                        // Find verb entry with forms for this infinitive
-                        const entry = verbEntries.find(e => e.word === inf && e.forms);
-                        if (entry) {
-                            const formData = entry.forms.find(f => f.form && f.form.toLowerCase() === viaForm);
-                            if (formData && formData.tags) {
-                                const tags = formData.tags.filter(t => !['indicative', 'subjunctive', 'conditional', 'imperative'].includes(t));
-                                return `${inf} (${tags.join(' ')})`;
-                            }
-                        }
-                        return inf;
-                    }).join(', ');
-                    html += `<div class="conjugation-note">${viaForm}${audioBtn} → ${infList}</div>`;
+                // Show conjugation notes for all matching forms
+                for (const note of formNotes) {
+                    const audioBtn = note.audioUrl ? ` <button class="audio-btn" onclick="playAudio('${note.audioUrl}')">&#9658;</button>` : '';
+                    html += `<div class="conjugation-note">${note.form}${audioBtn} → ${note.infList}</div>`;
                 }
                 html += allEntries.map(renderEntry).join('');
                 result.innerHTML = html;
@@ -585,6 +599,8 @@
                     return requiredTags.every(t => tags.includes(t)) &&
                            tags.includes(person) && tags.includes(number);
                 });
+                // Treat "-" as missing (impersonal verbs like falloir)
+                if (match && match.form === '-') return '—';
                 return match ? match.form : '—';
             }
 
@@ -592,12 +608,34 @@
             const presentPart = forms.find(f => f.tags?.includes('participle') && f.tags?.includes('present'));
             const pastPart = forms.find(f => f.tags?.includes('participle') && f.tags?.includes('past'));
 
+            // Check if verb is impersonal (only 3rd person singular exists)
+            const isImpersonal = forms.some(f => f.form === '-');
+
             // Check if form is irregular by comparing to naive regular form
             function isFormIrregular(form, tenseKey, personIdx) {
-                if (form === '—') return false;
+                if (form === '—' || form === '-') return false;
                 const naive = getNaiveForm(tenseKey, personIdx);
                 if (!naive) return false; // Can't determine, don't highlight
                 return form.toLowerCase() !== naive.toLowerCase();
+            }
+
+            // Check if this is an s'en verb
+            const isSenVerb = word.startsWith("s'en ");
+
+            // Render form with proper irregular highlighting
+            function renderForm(form, isIrregular) {
+                if (form === '—') return form;
+                if (!isIrregular) return form;
+
+                // For s'en verbs, only highlight the verb part (last word)
+                if (isSenVerb) {
+                    const parts = form.split(' ');
+                    if (parts.length > 1) {
+                        const verbPart = parts.pop();
+                        return parts.join(' ') + ' <span class="irregular">' + verbPart + '</span>';
+                    }
+                }
+                return '<span class="irregular">' + form + '</span>';
             }
 
             // Table 1: Main tenses
@@ -624,8 +662,8 @@
                 html += `<td class="person-label">${persons[i]}</td>`;
                 for (const t of mainTenses) {
                     const form = getForm(t.tags, i);
-                    const cls = isFormIrregular(form, t.key, i) ? ' class="irregular"' : '';
-                    html += `<td${cls}>${form}</td>`;
+                    const isIrr = isFormIrregular(form, t.key, i);
+                    html += `<td>${renderForm(form, isIrr)}</td>`;
                 }
                 html += '</tr>';
             }
@@ -646,12 +684,25 @@
 
             // Generate passé composé (auxiliary + past participle)
             const pp = pastPart?.form || '—';
-            const usesEtre = entry.aux === 'être';
+            // s'en verbs and other pronominal verbs use être
+            const usesEtre = entry.aux === 'être' || isSenVerb;
             let passeCompose;
-            if (usesEtre) {
+            if (isImpersonal) {
+                // Impersonal verbs only have 3rd person singular
+                passeCompose = ['—', '—', `a ${pp}`, '—', '—', '—'];
+                if (isSenVerb) {
+                    passeCompose[2] = `s'en est ${pp}`;
+                }
+            } else if (usesEtre) {
                 const etreForms = ['suis', 'es', 'est', 'sommes', 'êtes', 'sont'];
                 const agreements = ['(e)', '(e)', '(e)', '(e)s', '(e)(s)', '(e)s'];
-                passeCompose = etreForms.map((aux, i) => `${aux} ${pp}${agreements[i]}`);
+                if (isSenVerb) {
+                    // s'en verbs need pronominal prefixes
+                    const senPrefixes = ["m'en ", "t'en ", "s'en ", "nous en ", "vous en ", "s'en "];
+                    passeCompose = etreForms.map((aux, i) => `${senPrefixes[i]}${aux} ${pp}${agreements[i]}`);
+                } else {
+                    passeCompose = etreForms.map((aux, i) => `${aux} ${pp}${agreements[i]}`);
+                }
             } else {
                 const avoirForms = ['ai', 'as', 'a', 'avons', 'avez', 'ont'];
                 passeCompose = avoirForms.map(aux => `${aux} ${pp}`);
@@ -694,8 +745,9 @@
 
             html += '<table>';
             html += '<tr>';
-            const ppCls = isPresentPartIrregular() ? ' class="irregular"' : '';
-            html += `<th class="inf-cell"${ppCls}>${presentPart?.form || '—'}</th>`;
+            const presentPartForm = presentPart?.form || '—';
+            const presentPartIrr = isPresentPartIrregular();
+            html += `<th class="inf-cell">${renderForm(presentPartForm, presentPartIrr)}</th>`;
             html += `<th>P.Comp</th>`;
             for (const t of extraTenses) {
                 html += `<th>${t.name}</th>`;
@@ -709,29 +761,33 @@
                 const zebra = i % 2 === 0 ? ' class="zebra"' : '';
                 html += `<tr${zebra}>`;
                 html += `<td class="person-label">${persons[i]}</td>`;
-                // Passé composé - only highlight the past participle part, not auxiliary
-                if (usesEtre || ppIrr) {
-                    // Split into aux + pp, only highlight pp
+                // Passé composé - only highlight the past participle part, not auxiliary/pronouns
+                if (passeCompose[i] === '—') {
+                    html += `<td>—</td>`;
+                } else if (usesEtre || ppIrr) {
+                    // Split and only highlight the last part (past participle with agreement)
                     const pcParts = passeCompose[i].split(' ');
-                    const aux = pcParts[0];
-                    const ppPart = pcParts.slice(1).join(' ');
-                    html += `<td>${aux} <span class="irregular">${ppPart}</span></td>`;
+                    const ppPart = pcParts.pop(); // Last part is the past participle
+                    const prefix = pcParts.join(' ');
+                    html += `<td>${prefix} <span class="irregular">${ppPart}</span></td>`;
                 } else {
                     html += `<td>${passeCompose[i]}</td>`;
                 }
                 for (const t of extraTenses) {
                     const form = getForm(t.tags, i);
-                    const cls = isFormIrregular(form, t.key, i) ? ' class="irregular"' : '';
-                    html += `<td${cls}>${form}</td>`;
+                    const isIrr = isFormIrregular(form, t.key, i);
+                    html += `<td>${renderForm(form, isIrr)}</td>`;
                 }
                 // Imperative only for tu (1), nous (3), vous (4)
                 // Only highlight the verb, not the "!"
                 const imperIdx = imperPersonIdx.indexOf(i);
-                const imperFormRaw = imperIdx >= 0 && imperForms[imperIdx]?.form ? imperForms[imperIdx].form : null;
+                let imperFormRaw = imperIdx >= 0 && imperForms[imperIdx]?.form ? imperForms[imperIdx].form : null;
+                // Treat "-" as missing (impersonal verbs)
+                if (imperFormRaw === '-') imperFormRaw = null;
                 if (imperFormRaw) {
                     const isIrr = isImperIrregular(imperFormRaw, imperPersonIdx[imperIdx]);
                     if (isIrr) {
-                        html += `<td><span class="irregular">${imperFormRaw}</span> !</td>`;
+                        html += `<td>${renderForm(imperFormRaw, true)} !</td>`;
                     } else {
                         html += `<td>${imperFormRaw} !</td>`;
                     }
@@ -801,26 +857,35 @@
             doSearch(word);
         }
 
-        // Find word in dict (accent-insensitive)
-        function findWord(query) {
-            // Exact match first
-            if (dict.words[query]) return query;
-            // Normalized match
+        // Find ALL words in dict matching query (accent-insensitive)
+        function findAllWords(query) {
             const q = normalize(query);
+            const matches = [];
             for (const word of wordList) {
-                if (normalize(word) === q) return word;
+                if (normalize(word) === q) matches.push(word);
             }
-            return null;
+            return matches;
         }
 
-        // Find in form index (accent-insensitive)
-        function findForm(query) {
-            if (formIndex[query]) return query;
+        // Find ALL forms matching query (accent-insensitive)
+        function findAllForms(query) {
             const q = normalize(query);
-            for (const form of Object.keys(formIndex)) {
-                if (normalize(form) === q) return form;
+            const matches = [];
+            for (const form of Object.keys(formIndex || {})) {
+                if (normalize(form) === q) matches.push(form);
             }
-            return null;
+            return matches;
+        }
+
+        // Legacy single-match functions (for suggestions hiding logic)
+        function findWord(query) {
+            const matches = findAllWords(query);
+            return matches.length > 0 ? matches[0] : null;
+        }
+
+        function findForm(query) {
+            const matches = findAllForms(query);
+            return matches.length > 0 ? matches[0] : null;
         }
 
         function updateSuggestions(query) {

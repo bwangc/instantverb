@@ -46,6 +46,21 @@ def main():
     if missing[:10]:
         print(f"First 10 missing: {missing[:10]}")
 
+    # Add s'en [verb] entries if base verb is in 10k
+    sen_added = 0
+    for word in full_dict['words']:
+        if word.startswith("s'en "):
+            # Check if the base verb (first word after s'en) is in 10k
+            parts = word.split()
+            if len(parts) >= 2:
+                base = parts[1]  # e.g., "aller" from "s'en aller"
+                if base in words_10k and word not in words_10k:
+                    words_10k[word] = full_dict['words'][word]
+                    sen_added += 1
+
+    if sen_added:
+        print(f"Added {sen_added} s'en [verb] entries")
+
     # Build output
     output = {
         'lang': 'fr',

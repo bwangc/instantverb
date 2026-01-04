@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instantdict</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .search-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 25vh;
+            transition: margin-top 0.3s ease;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .search-container.has-results {
+            margin-top: 40px;
+        }
+
+        h1 {
+            font-weight: 300;
+            font-size: 3.5rem;
+            margin-bottom: 30px;
+            color: #a5b4fc;
+            letter-spacing: -1px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        #search {
+            font-size: 1.1rem;
+            padding: 14px 24px;
+            border: 1px solid #3a3a5e;
+            border-radius: 24px;
+            background: #252542;
+            color: #eee;
+            width: 100%;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        #search:hover {
+            border-color: #5a5a7e;
+        }
+
+        #search:focus {
+            border-color: #a5b4fc;
+            background: #2a2a4a;
+        }
+
+        #search::placeholder { color: #666; }
+
+        .suggestions {
+            width: 100%;
+            max-width: 500px;
+            margin-top: 12px;
+            display: none;
+        }
+
+        .suggestions.visible { display: block; }
+
+        .suggestion {
+            padding: 10px 24px;
+            cursor: pointer;
+            background: #252542;
+            border-radius: 8px;
+            margin-bottom: 4px;
+        }
+
+        .suggestion:hover, .suggestion.selected {
+            background: #3a3a5e;
+        }
+
+        .suggestion .pos {
+            margin-left: 8px;
+            font-size: 0.85rem;
+        }
+
+        .status {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 12px;
+            height: 20px;
+        }
+
+        .status.ready { color: #4ade80; }
+        .status.loading { color: #a5b4fc; }
+
+        #result {
+            margin-top: 40px;
+            width: 100%;
+            max-width: 700px;
+        }
+
+        .entry {
+            background: #252542;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .entry-header {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .word {
+            font-size: 1.5rem;
+            color: #a5b4fc;
+        }
+
+        .pos {
+            font-size: 0.9rem;
+            color: #888;
+            font-style: italic;
+        }
+
+        .ipa {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .sense {
+            margin: 12px 0;
+            padding-left: 16px;
+            border-left: 2px solid #3a3a5e;
+        }
+
+        .gloss {
+            color: #eee;
+            margin-bottom: 6px;
+        }
+
+        .example {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin: 4px 0;
+        }
+
+        .example-fr { font-style: italic; }
+        .example-en { color: #888; }
+
+        .audio-btn {
+            background: none;
+            border: 1px solid #3a3a5e;
+            color: #a5b4fc;
+            padding: 4px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .audio-btn:hover { background: #3a3a5e; }
+
+        .etymology {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #3a3a5e;
+        }
+
+        .etymology-text p {
+            margin: 0 0 8px 0;
+        }
+
+        .etymology-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .etymology-toggle {
+            color: #666;
+            cursor: pointer;
+            font-size: 0.7rem;
+            float: right;
+            transition: color 0.15s;
+        }
+
+        .etymology-toggle:hover {
+            color: #a5b4fc;
+        }
+
+        .no-results {
+            color: #888;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .conjugation-note {
+            color: #a5b4fc;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            padding: 8px 16px;
+            background: rgba(165, 180, 252, 0.1);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container" id="container">
+        <h1>Instantdict</h1>
+        <div class="input-wrapper">
+            <input type="text" id="search" placeholder="Search French words..." autocomplete="off" autofocus>
+        </div>
+        <div class="status loading" id="status">Loading dictionary...</div>
+        <div class="suggestions" id="suggestions"></div>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        let dict = null;
+        let formIndex = null;  // conjugated form -> infinitive(s)
+        let formAudio = null;  // conjugated form -> audio URL
+        let wordList = [];  // Ordered list for autocomplete
+        let isReady = false;
+        let selectedIdx = -1;
+
+        const search = document.getElementById('search');
+        const result = document.getElementById('result');
+        const status = document.getElementById('status');
+        const container = document.getElementById('container');
+        const suggestions = document.getElementById('suggestions');
+
+        // Load dictionary in background
+        async function loadDictionary() {
+            try {
+                // Load all in parallel
+                const [dictRes, formsRes, audioRes] = await Promise.all([
+                    fetch('data/fr-10k.json'),
+                    fetch('data/fr-10k-forms.json'),
+                    fetch('data/fr-form-audio.json')
+                ]);
+                dict = await dictRes.json();
+                formIndex = (await formsRes.json()).forms;
+                formAudio = await audioRes.json();
+                wordList = Object.keys(dict.words);  // Preserves frequency order
+                isReady = true;
+                status.textContent = '';
+                status.className = 'status';
+
+                // If user already typed something, search now
+                if (search.value.trim()) {
+                    updateSuggestions(search.value.trim().toLowerCase());
+                }
+            } catch (e) {
+                status.textContent = 'Failed to load dictionary';
+                status.className = 'status';
+            }
+        }
+
+        function renderEntry(entry) {
+            let html = `<div class="entry">`;
+            html += `<div class="entry-header">`;
+            html += `<span class="word">${entry.word}</span>`;
+            html += `<span class="pos">${entry.pos}</span>`;
+            if (entry.ipa) html += `<span class="ipa">${entry.ipa}</span>`;
+            if (entry.audio) {
+                html += `<button class="audio-btn" onclick="playAudio('${entry.audio}')">&#9658; Play</button>`;
+            }
+            html += `</div>`;
+
+            if (entry.senses) {
+                for (const sense of entry.senses) {
+                    html += `<div class="sense">`;
+                    if (sense.tags) {
+                        html += `<span class="pos">(${sense.tags.join(', ')}) </span>`;
+                    }
+                    html += `<span class="gloss">${sense.gloss}</span>`;
+                    if (sense.examples) {
+                        for (const ex of sense.examples) {
+                            html += `<div class="example">`;
+                            html += `<div class="example-fr">${ex.text}</div>`;
+                            if (ex.en) html += `<div class="example-en">${ex.en}</div>`;
+                            html += `</div>`;
+                        }
+                    }
+                    html += `</div>`;
+                }
+            }
+
+            if (entry.etymology) {
+                const etymId = 'etym-' + Math.random().toString(36).substr(2, 9);
+                const paras = entry.etymology.split('\n');
+                const hasMore = paras.length > 1;
+                const btn = `<span id="${etymId}-btn" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span>`;
+                html += `<div class="etymology">`;
+                if (hasMore) {
+                    html += `<div id="${etymId}" class="etymology-text"><p>${paras[0]} ${btn}</p></div>`;
+                    const fullParas = paras.map((p, i) => i === paras.length - 1 ? `<p>${p} ${btn.replace('&#9660;', '&#9650;').replace(etymId + '-btn', etymId + '-btn2')}</p>` : `<p>${p}</p>`).join('');
+                    html += `<div id="${etymId}-full" class="etymology-text" style="display:none">${fullParas}</div>`;
+                } else {
+                    html += `<div class="etymology-text"><p>${entry.etymology}</p></div>`;
+                }
+                html += `</div>`;
+            }
+
+            html += `</div>`;
+            return html;
+        }
+
+        function doSearch(query) {
+            if (!isReady || !query) {
+                result.innerHTML = '';
+                container.classList.remove('has-results');
+                return;
+            }
+
+            container.classList.add('has-results');
+
+            // Direct match
+            let entries = dict.words[query] ? [...dict.words[query]] : [];
+            let viaForm = null;
+            let verbEntries = [];
+
+            // Always check conjugated forms (even if direct match exists)
+            if (formIndex) {
+                const formMatch = findForm(query);
+                const infinitives = formMatch ? formIndex[formMatch] : null;
+                if (infinitives && infinitives.length > 0) {
+                    viaForm = formMatch;
+                    // Get verb entries for all matching infinitives
+                    for (const inf of infinitives) {
+                        if (dict.words[inf]) {
+                            verbEntries.push(...dict.words[inf]);
+                        }
+                    }
+                    // Sort: present tense forms first
+                    verbEntries.sort((a, b) => {
+                        const aForm = a.forms?.find(f => f.form?.toLowerCase() === viaForm);
+                        const bForm = b.forms?.find(f => f.form?.toLowerCase() === viaForm);
+                        const aPresent = aForm?.tags?.includes('present') ? 0 : 1;
+                        const bPresent = bForm?.tags?.includes('present') ? 0 : 1;
+                        return aPresent - bPresent;
+                    });
+                }
+            }
+
+            // Combine: show conjugation note + verb entries first, then direct matches
+            const allEntries = [...verbEntries, ...entries];
+
+            if (allEntries.length > 0) {
+                let html = '';
+                if (viaForm && verbEntries.length > 0) {
+                    const audioUrl = formAudio ? formAudio[viaForm] : null;
+                    const audioBtn = audioUrl ? ` <button class="audio-btn" onclick="playAudio('${audioUrl}')">&#9658;</button>` : '';
+                    // Build infinitive list with form tags (already sorted by present first)
+                    const infList = verbEntries.map(e => e.word).filter((v,i,a) => a.indexOf(v) === i).map(inf => {
+                        // Find verb entry with forms for this infinitive
+                        const entry = verbEntries.find(e => e.word === inf && e.forms);
+                        if (entry) {
+                            const formData = entry.forms.find(f => f.form && f.form.toLowerCase() === viaForm);
+                            if (formData && formData.tags) {
+                                const tags = formData.tags.filter(t => !['indicative', 'subjunctive', 'conditional', 'imperative'].includes(t));
+                                return `${inf} (${tags.join(' ')})`;
+                            }
+                        }
+                        return inf;
+                    }).join(', ');
+                    html += `<div class="conjugation-note">${viaForm}${audioBtn} → ${infList}</div>`;
+                }
+                html += allEntries.map(renderEntry).join('');
+                result.innerHTML = html;
+            } else {
+                result.innerHTML = `<div class="no-results">No results for "${query}"</div>`;
+            }
+        }
+
+        function playAudio(url) {
+            new Audio(url).play();
+        }
+
+        function toggleEtym(id) {
+            const short = document.getElementById(id);
+            const full = document.getElementById(id + '-full');
+            if (short.style.display === 'none') {
+                short.style.display = '';
+                full.style.display = 'none';
+            } else {
+                short.style.display = 'none';
+                full.style.display = '';
+            }
+        }
+
+        // Remove accents for matching
+        function normalize(str) {
+            return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+
+        // Autocomplete
+        function getSuggestions(query) {
+            if (!query || !isReady) return [];
+            const q = normalize(query);
+
+            // Dictionary words (infinitives, nouns, etc.)
+            const dictStarts = wordList.filter(w => normalize(w).startsWith(q));
+            const dictContains = wordList.filter(w => !normalize(w).startsWith(q) && normalize(w).includes(q));
+
+            // Conjugated forms
+            const formKeys = formIndex ? Object.keys(formIndex) : [];
+            const formStarts = formKeys.filter(w => normalize(w).startsWith(q) && !dict.words[w]);
+
+            // Combine: dict words first (by frequency), then forms
+            return [...dictStarts, ...formStarts, ...dictContains].slice(0, 8);
+        }
+
+        function showSuggestions(matches) {
+            if (matches.length === 0) {
+                hideSuggestions();
+                return;
+            }
+            suggestions.innerHTML = matches.map((word, i) => {
+                const entries = dict.words[word];
+                let label = '';
+                if (entries) {
+                    label = `<span class="pos">${entries[0]?.pos || ''}</span>`;
+                } else if (formIndex && formIndex[word]) {
+                    label = `<span class="pos">→ ${formIndex[word].join(', ')}</span>`;
+                }
+                return `<div class="suggestion${i === selectedIdx ? ' selected' : ''}" data-word="${word}">
+                    ${word}${label}
+                </div>`;
+            }).join('');
+            suggestions.classList.add('visible');
+        }
+
+        function hideSuggestions() {
+            suggestions.classList.remove('visible');
+            selectedIdx = -1;
+        }
+
+        function selectWord(word) {
+            search.value = word;
+            hideSuggestions();
+            doSearch(word);
+        }
+
+        // Find word in dict (accent-insensitive)
+        function findWord(query) {
+            // Exact match first
+            if (dict.words[query]) return query;
+            // Normalized match
+            const q = normalize(query);
+            for (const word of wordList) {
+                if (normalize(word) === q) return word;
+            }
+            return null;
+        }
+
+        // Find in form index (accent-insensitive)
+        function findForm(query) {
+            if (formIndex[query]) return query;
+            const q = normalize(query);
+            for (const form of Object.keys(formIndex)) {
+                if (normalize(form) === q) return form;
+            }
+            return null;
+        }
+
+        function updateSuggestions(query) {
+            if (!query) {
+                hideSuggestions();
+                result.innerHTML = '';
+                container.classList.remove('has-results');
+                return;
+            }
+
+            // Always show suggestions while typing
+            const matches = getSuggestions(query);
+            showSuggestions(matches);
+
+            // Also show result if exact match exists
+            const match = findWord(query) || findForm(query);
+            if (match) {
+                doSearch(match);
+            } else {
+                result.innerHTML = '';
+                container.classList.remove('has-results');
+            }
+        }
+
+        // Event handlers
+        search.addEventListener('input', () => {
+            selectedIdx = -1;
+            updateSuggestions(search.value.trim().toLowerCase());
+        });
+
+        search.addEventListener('keydown', (e) => {
+            const items = suggestions.querySelectorAll('.suggestion');
+            if (!suggestions.classList.contains('visible')) {
+                if (e.key === 'Enter') {
+                    const q = search.value.trim().toLowerCase();
+                    if (q) doSearch(q);
+                }
+                return;
+            }
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedIdx = Math.min(selectedIdx + 1, items.length - 1);
+                showSuggestions(getSuggestions(search.value.trim().toLowerCase()));
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedIdx = Math.max(selectedIdx - 1, -1);
+                showSuggestions(getSuggestions(search.value.trim().toLowerCase()));
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (selectedIdx >= 0) {
+                    selectWord(items[selectedIdx].dataset.word);
+                } else {
+                    const q = search.value.trim().toLowerCase();
+                    if (q) doSearch(q);
+                    hideSuggestions();
+                }
+            } else if (e.key === 'Escape') {
+                hideSuggestions();
+            }
+        });
+
+        suggestions.addEventListener('click', (e) => {
+            const item = e.target.closest('.suggestion');
+            if (item) selectWord(item.dataset.word);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                hideSuggestions();
+            }
+        });
+
+        // Start loading immediately
+        loadDictionary();
+    </script>
+</body>
+</html>

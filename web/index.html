@@ -231,6 +231,8 @@
             margin-top: 12px;
             padding-top: 12px;
             border-top: 1px solid #3a3a5e;
+            position: relative;
+            padding-right: 20px;
         }
 
         .etymology-text p {
@@ -245,7 +247,9 @@
             color: #666;
             cursor: pointer;
             font-size: 0.7rem;
-            margin-left: 6px;
+            position: absolute;
+            right: 0;
+            bottom: 0;
             transition: color 0.15s;
         }
 
@@ -360,12 +364,13 @@
                 const etymId = 'etym-' + Math.random().toString(36).substr(2, 9);
                 const paras = entry.etymology.split('\n');
                 const hasMore = paras.length > 1;
-                const btn = `<span id="${etymId}-btn" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span>`;
                 html += `<div class="etymology">`;
                 if (hasMore) {
-                    html += `<div id="${etymId}" class="etymology-text"><p>${paras[0]} ${btn}</p></div>`;
-                    const fullParas = paras.map((p, i) => i === paras.length - 1 ? `<p>${p} ${btn.replace('&#9660;', '&#9650;').replace(etymId + '-btn', etymId + '-btn2')}</p>` : `<p>${p}</p>`).join('');
+                    html += `<div id="${etymId}" class="etymology-text"><p>${paras[0]}</p></div>`;
+                    html += `<span id="${etymId}-btn" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span>`;
+                    const fullParas = paras.map(p => `<p>${p}</p>`).join('');
                     html += `<div id="${etymId}-full" class="etymology-text" style="display:none">${fullParas}</div>`;
+                    html += `<span id="${etymId}-btn2" class="etymology-toggle" style="display:none" onclick="toggleEtym('${etymId}')">&#9650;</span>`;
                 } else {
                     html += `<div class="etymology-text"><p>${entry.etymology}</p></div>`;
                 }
@@ -450,12 +455,18 @@
         function toggleEtym(id) {
             const short = document.getElementById(id);
             const full = document.getElementById(id + '-full');
+            const btn1 = document.getElementById(id + '-btn');
+            const btn2 = document.getElementById(id + '-btn2');
             if (short.style.display === 'none') {
                 short.style.display = '';
                 full.style.display = 'none';
+                btn1.style.display = '';
+                btn2.style.display = 'none';
             } else {
                 short.style.display = 'none';
                 full.style.display = '';
+                btn1.style.display = 'none';
+                btn2.style.display = '';
             }
         }
 

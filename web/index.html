@@ -231,8 +231,6 @@
             margin-top: 12px;
             padding-top: 12px;
             border-top: 1px solid #3a3a5e;
-            position: relative;
-            padding-right: 20px;
         }
 
         .etymology-text p {
@@ -243,13 +241,18 @@
             margin-bottom: 0;
         }
 
+        .etymology-last {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 12px;
+        }
+
         .etymology-toggle {
             color: #666;
             cursor: pointer;
             font-size: 0.7rem;
-            position: absolute;
-            right: 0;
-            bottom: 0;
+            flex-shrink: 0;
             transition: color 0.15s;
         }
 
@@ -366,11 +369,20 @@
                 const hasMore = paras.length > 1;
                 html += `<div class="etymology">`;
                 if (hasMore) {
-                    html += `<div id="${etymId}" class="etymology-text"><p>${paras[0]}</p></div>`;
-                    html += `<span id="${etymId}-btn" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span>`;
-                    const fullParas = paras.map(p => `<p>${p}</p>`).join('');
-                    html += `<div id="${etymId}-full" class="etymology-text" style="display:none">${fullParas}</div>`;
-                    html += `<span id="${etymId}-btn2" class="etymology-toggle" style="display:none" onclick="toggleEtym('${etymId}')">&#9650;</span>`;
+                    // Collapsed view: first para with toggle
+                    html += `<div id="${etymId}" class="etymology-text">`;
+                    html += `<div class="etymology-last"><span>${paras[0]}</span><span id="${etymId}-btn" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span></div>`;
+                    html += `</div>`;
+                    // Expanded view: all paras with toggle on last
+                    html += `<div id="${etymId}-full" class="etymology-text" style="display:none">`;
+                    for (let i = 0; i < paras.length; i++) {
+                        if (i === paras.length - 1) {
+                            html += `<div class="etymology-last"><span>${paras[i]}</span><span id="${etymId}-btn2" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9650;</span></div>`;
+                        } else {
+                            html += `<p>${paras[i]}</p>`;
+                        }
+                    }
+                    html += `</div>`;
                 } else {
                     html += `<div class="etymology-text"><p>${entry.etymology}</p></div>`;
                 }
@@ -455,18 +467,12 @@
         function toggleEtym(id) {
             const short = document.getElementById(id);
             const full = document.getElementById(id + '-full');
-            const btn1 = document.getElementById(id + '-btn');
-            const btn2 = document.getElementById(id + '-btn2');
             if (short.style.display === 'none') {
                 short.style.display = '';
                 full.style.display = 'none';
-                btn1.style.display = '';
-                btn2.style.display = 'none';
             } else {
                 short.style.display = 'none';
                 full.style.display = '';
-                btn1.style.display = 'none';
-                btn2.style.display = '';
             }
         }
 

@@ -241,18 +241,11 @@
             margin-bottom: 0;
         }
 
-        .etymology-last {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 12px;
-        }
-
         .etymology-toggle {
             color: #666;
             cursor: pointer;
             font-size: 0.7rem;
-            flex-shrink: 0;
+            margin-left: 8px;
             transition: color 0.15s;
         }
 
@@ -369,15 +362,13 @@
                 const hasMore = paras.length > 1;
                 html += `<div class="etymology">`;
                 if (hasMore) {
-                    // Collapsed view: first para with toggle
-                    html += `<div id="${etymId}" class="etymology-text">`;
-                    html += `<div class="etymology-last"><span>${paras[0]}</span><span id="${etymId}-btn" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span></div>`;
-                    html += `</div>`;
-                    // Expanded view: all paras with toggle on last
+                    // Collapsed view: first para with toggle inline at end
+                    html += `<div id="${etymId}" class="etymology-text"><p>${paras[0]}<span class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span></p></div>`;
+                    // Expanded view: all paras with toggle inline at end of last
                     html += `<div id="${etymId}-full" class="etymology-text" style="display:none">`;
                     for (let i = 0; i < paras.length; i++) {
                         if (i === paras.length - 1) {
-                            html += `<div class="etymology-last"><span>${paras[i]}</span><span id="${etymId}-btn2" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9650;</span></div>`;
+                            html += `<p>${paras[i]}<span class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9650;</span></p>`;
                         } else {
                             html += `<p>${paras[i]}</p>`;
                         }

@@ -95,6 +95,13 @@ def simplify_entry(entry: dict) -> dict:
                 result['gender'] = 'f'
                 break
 
+    # Auxiliary for verbs (être vs avoir)
+    if entry.get('pos') == 'verb':
+        for cat in entry.get('categories', []):
+            if 'verbs taking être as auxiliary' in cat.lower():
+                result['aux'] = 'être'
+                break
+
     return result
 
 def build_database(input_path: Path, output_path: Path, lang_code: str):

@@ -57,7 +57,7 @@ python build_10k.py                    # -> data/fr-10k.json, data/fr-10k-forms.
 ```json
 {
   "lang": "fr",
-  "word_count": 9664,
+  "word_count": 92283,
   "words": {
     "parler": [
       {

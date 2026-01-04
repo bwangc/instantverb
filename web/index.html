@@ -173,6 +173,54 @@
 
         .audio-btn:hover { background: #3a3a5e; }
 
+        .conjugate-btn {
+            background: none;
+            border: 1px solid #3a3a5e;
+            color: #a5b4fc;
+            padding: 4px 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .conjugate-btn:hover { background: #3a3a5e; }
+
+        .conjugation-tables {
+            margin: 16px 0;
+            overflow-x: auto;
+            display: inline-flex;
+            flex-direction: column;
+        }
+
+        .conjugation-tables table {
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .conjugation-tables th, .conjugation-tables td {
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .conjugation-tables th {
+            color: #a5b4fc;
+            border-bottom: 1px solid #a5b4fc;
+        }
+
+        .conjugation-tables .inf-cell {
+            font-style: italic;
+            border-bottom: none;
+        }
+
+        .conjugation-tables tr.zebra {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .conjugation-tables .person-label {
+            color: #a5b4fc;
+        }
+
         .etymology {
             font-size: 0.85rem;
             color: #888;
@@ -271,13 +319,17 @@
         }
 
         function renderEntry(entry) {
-            let html = `<div class="entry">`;
+            const entryId = 'entry-' + Math.random().toString(36).substr(2, 9);
+            let html = `<div class="entry" id="${entryId}">`;
             html += `<div class="entry-header">`;
             html += `<span class="word">${entry.word}</span>`;
             html += `<span class="pos">${entry.pos}</span>`;
             if (entry.ipa) html += `<span class="ipa">${entry.ipa}</span>`;
             if (entry.audio) {
                 html += `<button class="audio-btn" onclick="playAudio('${entry.audio}')">&#9658; Play</button>`;
+            }
+            if (entry.pos === 'verb' && entry.forms && entry.forms.length > 0) {
+                html += `<button class="conjugate-btn" onclick="toggleConjugation('${entryId}', '${entry.word}')">Conjugate</button>`;
             }
             html += `</div>`;
 
@@ -401,6 +453,139 @@
                 short.style.display = 'none';
                 full.style.display = '';
             }
+        }
+
+        // Conjugation tables
+        function toggleConjugation(entryId, word) {
+            const entry = document.getElementById(entryId);
+            const existing = entry.querySelector('.conjugation-tables');
+            if (existing) {
+                existing.remove();
+                return;
+            }
+
+            // Find verb entry with forms
+            const entries = dict.words[word];
+            const verbEntry = entries?.find(e => e.pos === 'verb' && e.forms);
+            if (!verbEntry) return;
+
+            const tables = buildConjugationTables(verbEntry);
+            // Insert after header
+            const header = entry.querySelector('.entry-header');
+            header.insertAdjacentHTML('afterend', tables);
+        }
+
+        function buildConjugationTables(entry) {
+            const forms = entry.forms;
+            const persons = ['je', 'tu', 'il/elle', 'nous', 'vous', 'ils/elles'];
+            const personTags = [
+                ['first-person', 'singular'],
+                ['second-person', 'singular'],
+                ['third-person', 'singular'],
+                ['first-person', 'plural'],
+                ['second-person', 'plural'],
+                ['third-person', 'plural']
+            ];
+
+            // Helper to find form by tags
+            function getForm(requiredTags, personIdx) {
+                const [person, number] = personTags[personIdx];
+                const match = forms.find(f => {
+                    const tags = f.tags || [];
+                    return requiredTags.every(t => tags.includes(t)) &&
+                           tags.includes(person) && tags.includes(number);
+                });
+                return match ? match.form : '—';
+            }
+
+            // Get participles
+            const presentPart = forms.find(f => f.tags?.includes('participle') && f.tags?.includes('present'));
+            const pastPart = forms.find(f => f.tags?.includes('participle') && f.tags?.includes('past'));
+
+            // Table 1: Main tenses
+            const mainTenses = [
+                { tags: ['indicative', 'present'], name: 'Prés' },
+                { tags: ['indicative', 'imperfect'], name: 'Imp' },
+                { tags: ['indicative', 'future'], name: 'Fut' },
+                { tags: ['conditional'], name: 'Cond' },
+                { tags: ['subjunctive', 'present'], name: 'Subj' },
+            ];
+
+            let html = '<div class="conjugation-tables">';
+            html += '<table>';
+            html += '<tr>';
+            html += `<th class="inf-cell">${entry.word}</th>`;
+            for (const t of mainTenses) {
+                html += `<th>${t.name}</th>`;
+            }
+            html += '</tr>';
+
+            for (let i = 0; i < 6; i++) {
+                const zebra = i % 2 === 0 ? ' class="zebra"' : '';
+                html += `<tr${zebra}>`;
+                html += `<td class="person-label">${persons[i]}</td>`;
+                for (const t of mainTenses) {
+                    html += `<td>${getForm(t.tags, i)}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</table>';
+
+            // Table 2: Extra tenses
+            const extraTenses = [
+                { tags: ['indicative', 'historic', 'past'], name: 'P.Sim' },
+                { tags: ['subjunctive', 'imperfect'], name: 'S.Imp' },
+            ];
+
+            // Get imperative forms (only tu, nous, vous)
+            const imperForms = [
+                forms.find(f => f.tags?.includes('imperative') && f.tags?.includes('second-person') && f.tags?.includes('singular')),
+                forms.find(f => f.tags?.includes('imperative') && f.tags?.includes('first-person') && f.tags?.includes('plural')),
+                forms.find(f => f.tags?.includes('imperative') && f.tags?.includes('second-person') && f.tags?.includes('plural')),
+            ];
+
+            // Generate passé composé (auxiliary + past participle)
+            const pp = pastPart?.form || '—';
+            const usesEtre = entry.aux === 'être';
+            let passeCompose;
+            if (usesEtre) {
+                const etreForms = ['suis', 'es', 'est', 'sommes', 'êtes', 'sont'];
+                const agreements = ['(e)', '(e)', '(e)', '(e)s', '(e)(s)', '(e)s'];
+                passeCompose = etreForms.map((aux, i) => `${aux} ${pp}${agreements[i]}`);
+            } else {
+                const avoirForms = ['ai', 'as', 'a', 'avons', 'avez', 'ont'];
+                passeCompose = avoirForms.map(aux => `${aux} ${pp}`);
+            }
+
+            html += '<table>';
+            html += '<tr>';
+            html += `<th class="inf-cell">${presentPart?.form || '—'}</th>`;
+            html += `<th>P.Comp</th>`;
+            for (const t of extraTenses) {
+                html += `<th>${t.name}</th>`;
+            }
+            html += `<th>Impér</th>`;
+            html += '</tr>';
+
+            const imperPersonIdx = [1, 3, 4]; // tu, nous, vous
+            for (let i = 0; i < 6; i++) {
+                const zebra = i % 2 === 0 ? ' class="zebra"' : '';
+                html += `<tr${zebra}>`;
+                html += `<td class="person-label">${persons[i]}</td>`;
+                html += `<td>${passeCompose[i]}</td>`;
+                for (const t of extraTenses) {
+                    html += `<td>${getForm(t.tags, i)}</td>`;
+                }
+                // Imperative only for tu (1), nous (3), vous (4)
+                const imperIdx = imperPersonIdx.indexOf(i);
+                const imperForm = imperIdx >= 0 && imperForms[imperIdx]?.form ? imperForms[imperIdx].form + ' !' : '—';
+                html += `<td>${imperForm}</td>`;
+                html += '</tr>';
+            }
+            html += '</table>';
+
+            html += '</div>';
+            return html;
         }
 
         // Remove accents for matching

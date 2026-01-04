@@ -5,13 +5,13 @@ Scripts to extract and process language-specific dictionaries from kaikki.org Wi
 ## Source Data
 
 Download from https://kaikki.org/dictionary/
-- `raw-wiktextract-data.jsonl` - Full English Wiktionary dump (~21 GB)
-- Place in `kaikki/en-raw-data/`
+- `raw-wiktextract-data.jsonl.gz` - Full English Wiktionary dump (~21 GB uncompressed)
+- Place in `kaikki/en-raw-data-gz/`
 
 ## Scripts
 
 ### `extract_language.py`
-Extracts all entries for a specific language from the raw dump.
+Extracts all entries for a specific language from the raw dump. Supports gzipped input.
 
 ```bash
 python extract_language.py fr          # French -> data/fr.jsonl
@@ -24,24 +24,40 @@ python extract_language.py de          # German
 ### `build_database.py`
 Builds a clean, compact dictionary from extracted JSONL.
 
+Filters applied:
+- Removes "form-of" entries (e.g., "vis" as "inflection of vivre")
+- Removes Louisiana-specific definitions
+
 ```bash
 python build_database.py fr            # -> data/fr-dict.json
 ```
 
 **Output**: `data/<lang>-dict.json` - Single JSON with word index
 
+### `build_10k.py`
+Builds a subset dictionary from the top 10k most common words (based on frequency list).
+Also builds a verb forms index for conjugation lookup.
+
+```bash
+python build_10k.py                    # -> data/fr-10k.json, data/fr-10k-forms.json
+```
+
+**Outputs**:
+- `data/fr-10k.json` - Dictionary subset (~16 MB)
+- `data/fr-10k-forms.json` - Conjugated form → infinitive mapping (~2 MB)
+
 ## Processed Languages
 
-| Lang | Code | Entries | Words | Raw Size | Dict Size |
-|------|------|---------|-------|----------|-----------|
-| French | fr | 398,108 | 382,459 | 417 MB | 127 MB |
+| Lang | Code | Entries | Words | Dict Size | 10k Size |
+|------|------|---------|-------|-----------|----------|
+| French | fr | 99,539 | 92,283 | 68 MB | 16 MB |
 
 ## Output Format
 
 ```json
 {
   "lang": "fr",
-  "word_count": 382459,
+  "word_count": 9664,
   "words": {
     "parler": [
       {
@@ -64,10 +80,22 @@ python build_database.py fr            # -> data/fr-dict.json
 }
 ```
 
+## Forms Index Format
+
+```json
+{
+  "forms": {
+    "suis": ["être", "suivre"],
+    "vis": ["voir", "vivre"],
+    "parle": ["parler"]
+  }
+}
+```
+
 ## Notes
 
-- Each language may eventually need custom processing (different POS, gender systems, etc.)
-- French has 245k verb entries with full conjugations
-- Audio URLs available for many common words
-- Examples often include English translations
-- 127 MB might need splitting/compression for web use
+- Form-of entries are filtered out to avoid duplicate/redundant definitions
+- Louisiana French definitions are excluded
+- Verb forms include IPA pronunciation where available
+- Audio URLs from Wikimedia Commons included for many words
+- 10k subset is designed for fast client-side loading in web apps

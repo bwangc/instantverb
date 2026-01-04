@@ -669,20 +669,35 @@
                 const zebra = i % 2 === 0 ? ' class="zebra"' : '';
                 html += `<tr${zebra}>`;
                 html += `<td class="person-label">${persons[i]}</td>`;
-                // Passé composé - highlight if être verb or irregular past participle
-                const pcCls = (usesEtre || ppIrr) ? ' class="irregular"' : '';
-                html += `<td${pcCls}>${passeCompose[i]}</td>`;
+                // Passé composé - only highlight the past participle part, not auxiliary
+                if (usesEtre || ppIrr) {
+                    // Split into aux + pp, only highlight pp
+                    const pcParts = passeCompose[i].split(' ');
+                    const aux = pcParts[0];
+                    const ppPart = pcParts.slice(1).join(' ');
+                    html += `<td>${aux} <span class="irregular">${ppPart}</span></td>`;
+                } else {
+                    html += `<td>${passeCompose[i]}</td>`;
+                }
                 for (const t of extraTenses) {
                     const form = getForm(t.tags, i);
                     const cls = isFormIrregular(form, t.key, i) ? ' class="irregular"' : '';
                     html += `<td${cls}>${form}</td>`;
                 }
                 // Imperative only for tu (1), nous (3), vous (4)
+                // Only highlight the verb, not the "!"
                 const imperIdx = imperPersonIdx.indexOf(i);
                 const imperFormRaw = imperIdx >= 0 && imperForms[imperIdx]?.form ? imperForms[imperIdx].form : null;
-                const imperForm = imperFormRaw ? imperFormRaw + ' !' : '—';
-                const impCls = isImperIrregular(imperFormRaw, imperPersonIdx[imperIdx]) ? ' class="irregular"' : '';
-                html += `<td${impCls}>${imperForm}</td>`;
+                if (imperFormRaw) {
+                    const isIrr = isImperIrregular(imperFormRaw, imperPersonIdx[imperIdx]);
+                    if (isIrr) {
+                        html += `<td><span class="irregular">${imperFormRaw}</span> !</td>`;
+                    } else {
+                        html += `<td>${imperFormRaw} !</td>`;
+                    }
+                } else {
+                    html += `<td>—</td>`;
+                }
                 html += '</tr>';
             }
             html += '</table>';

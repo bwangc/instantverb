@@ -125,6 +125,15 @@ def build_database(input_path: Path, output_path: Path, lang_code: str):
             if not word:
                 continue
 
+            # Skip character entries
+            if entry.get('pos') == 'character':
+                continue
+
+            # Skip entries where all senses are abbreviations
+            senses = entry.get('senses', [])
+            if senses and all('abbreviation' in s.get('glosses', [''])[0].lower() for s in senses):
+                continue
+
             # Skip "form-of" entries (e.g., "vis" as verb form of vivre)
             # These just say "inflection of X" rather than actual definitions
             is_form_of = False

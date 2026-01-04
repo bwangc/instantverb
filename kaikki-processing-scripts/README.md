@@ -26,6 +26,8 @@ Builds a clean, compact dictionary from extracted JSONL.
 
 Filters applied:
 - Removes "form-of" entries (e.g., "vis" as "inflection of vivre")
+- Removes "character" entries (alphabet letters)
+- Removes abbreviation-only entries
 - Removes Louisiana-specific definitions
 
 ```bash

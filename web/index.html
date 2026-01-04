@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instantdict</title>
+    <title>Instantverb</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -56,24 +56,40 @@
             width: 100%;
             outline: none;
             transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
         #search:hover {
-            border-color: #5a5a7e;
+            background: #2a2a4a;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
         #search:focus {
-            border-color: #a5b4fc;
             background: #2a2a4a;
+            border-color: #a5b4fc;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
         #search::placeholder { color: #666; }
 
+        #search.has-suggestions {
+            border-radius: 24px 24px 0 0;
+        }
+
         .suggestions {
-            width: 100%;
-            max-width: 500px;
-            margin-top: 12px;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #252542;
+            border: 1px solid #3a3a5e;
+            border-top: none;
+            border-radius: 0 0 16px 16px;
+            max-height: 240px;
+            overflow-y: auto;
             display: none;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
         .suggestions.visible { display: block; }
@@ -81,13 +97,15 @@
         .suggestion {
             padding: 10px 24px;
             cursor: pointer;
-            background: #252542;
-            border-radius: 8px;
-            margin-bottom: 4px;
+            transition: background 0.1s;
         }
 
         .suggestion:hover, .suggestion.selected {
             background: #3a3a5e;
+        }
+
+        .suggestion:last-child {
+            border-radius: 0 0 16px 16px;
         }
 
         .suggestion .pos {
@@ -186,8 +204,6 @@
         .conjugate-btn:hover { background: #3a3a5e; }
 
         .conjugation-tables {
-            margin: 16px 0;
-            overflow-x: auto;
             display: inline-flex;
             flex-direction: column;
         }
@@ -195,6 +211,9 @@
         .conjugation-tables table {
             border-collapse: collapse;
             font-size: 14px;
+        }
+
+        .conjugation-tables table:first-child {
             margin-bottom: 16px;
         }
 
@@ -233,30 +252,25 @@
             border-top: 1px solid #3a3a5e;
         }
 
-        .etymology-text {
-            overflow: hidden;
-            transition: max-height 0.3s ease, opacity 0.3s ease;
-        }
-
-        .etymology-text.collapsed {
-            max-height: 150px;
-        }
-
-        .etymology-text.expanded {
-            max-height: 2000px;
-        }
-
-        .etymology-text.hidden {
-            max-height: 0;
-            opacity: 0;
-        }
-
         .etymology-text p {
             margin: 0 0 8px 0;
         }
 
         .etymology-text p:last-child {
             margin-bottom: 0;
+        }
+
+        .etymology-extra {
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease, margin 0.3s ease;
+            max-height: 2000px;
+            margin-top: 8px;
+        }
+
+        .etymology-extra.hidden {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
         }
 
         .etymology-toggle {
@@ -289,12 +303,12 @@
 </head>
 <body>
     <div class="search-container" id="container">
-        <h1>Instantdict</h1>
+        <h1>Instantverb</h1>
         <div class="input-wrapper">
             <input type="text" id="search" placeholder="Search French words..." autocomplete="off" autofocus>
+            <div class="suggestions" id="suggestions"></div>
         </div>
         <div class="status loading" id="status">Loading dictionary...</div>
-        <div class="suggestions" id="suggestions"></div>
     </div>
 
     <div id="result"></div>
@@ -380,17 +394,15 @@
                 const hasMore = paras.length > 1;
                 html += `<div class="etymology">`;
                 if (hasMore) {
-                    // Collapsed view: first para with toggle inline at end
-                    html += `<div id="${etymId}" class="etymology-text collapsed"><p>${paras[0]}<span class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span></p></div>`;
-                    // Expanded view: all paras with toggle inline at end of last
-                    html += `<div id="${etymId}-full" class="etymology-text expanded hidden">`;
-                    for (let i = 0; i < paras.length; i++) {
-                        if (i === paras.length - 1) {
-                            html += `<p>${paras[i]}<span class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9650;</span></p>`;
-                        } else {
-                            html += `<p>${paras[i]}</p>`;
-                        }
+                    // First paragraph always visible with collapse button (shown when collapsed)
+                    html += `<div class="etymology-text"><p>${paras[0]}<span id="${etymId}-btn" class="etymology-toggle" onclick="toggleEtym('${etymId}')">&#9660;</span></p></div>`;
+                    // Additional paragraphs (animated)
+                    html += `<div id="${etymId}" class="etymology-text etymology-extra hidden">`;
+                    for (let i = 1; i < paras.length - 1; i++) {
+                        html += `<p>${paras[i]}</p>`;
                     }
+                    // Last paragraph with expand button (shown when expanded)
+                    html += `<p>${paras[paras.length - 1]}<span id="${etymId}-btn2" class="etymology-toggle" style="display:none" onclick="toggleEtym('${etymId}')">&#9650;</span></p>`;
                     html += `</div>`;
                 } else {
                     html += `<div class="etymology-text"><p>${entry.etymology}</p></div>`;
@@ -474,14 +486,17 @@
         }
 
         function toggleEtym(id) {
-            const short = document.getElementById(id);
-            const full = document.getElementById(id + '-full');
-            if (full.classList.contains('hidden')) {
-                short.classList.add('hidden');
-                full.classList.remove('hidden');
+            const extra = document.getElementById(id);
+            const btn1 = document.getElementById(id + '-btn');
+            const btn2 = document.getElementById(id + '-btn2');
+            if (extra.classList.contains('hidden')) {
+                extra.classList.remove('hidden');
+                btn1.style.display = 'none';
+                btn2.style.display = '';
             } else {
-                short.classList.remove('hidden');
-                full.classList.add('hidden');
+                extra.classList.add('hidden');
+                btn1.style.display = '';
+                btn2.style.display = 'none';
             }
         }
 
@@ -500,7 +515,6 @@
             if (!verbEntry) return;
 
             const tables = buildConjugationTables(verbEntry);
-            // Insert after header
             const header = entry.querySelector('.entry-header');
             header.insertAdjacentHTML('afterend', tables);
         }
@@ -772,10 +786,12 @@
                 </div>`;
             }).join('');
             suggestions.classList.add('visible');
+            search.classList.add('has-suggestions');
         }
 
         function hideSuggestions() {
             suggestions.classList.remove('visible');
+            search.classList.remove('has-suggestions');
             selectedIdx = -1;
         }
 
@@ -815,15 +831,15 @@
                 return;
             }
 
-            // Always show suggestions while typing
-            const matches = getSuggestions(query);
-            showSuggestions(matches);
-
-            // Also show result if exact match exists
+            // Check for exact match first
             const match = findWord(query) || findForm(query);
             if (match) {
+                hideSuggestions();
                 doSearch(match);
             } else {
+                // Show suggestions while typing
+                const matches = getSuggestions(query);
+                showSuggestions(matches);
                 result.innerHTML = '';
                 container.classList.remove('has-results');
             }
@@ -873,7 +889,7 @@
         });
 
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('.search-container')) {
+            if (!e.target.closest('.input-wrapper')) {
                 hideSuggestions();
             }
         });

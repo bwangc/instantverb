@@ -18,7 +18,16 @@ from pathlib import Path
 from collections import defaultdict
 
 # Tags that indicate vulgar/offensive content in dictionary entries
-VULGAR_TAGS = {'vulgar', 'offensive'}
+# Note: 'derogatory' is too broad (638 words including bled, bœuf, aboyer)
+VULGAR_TAGS = {'vulgar', 'offensive', 'slur', 'ethnic'}
+
+# Slurs/offensive words that aren't properly tagged in source data
+# These have extremely offensive glosses but missing tags
+UNTAGGED_OFFENSIVE = {
+    'boucaque', 'bougnoul', 'bougnoule', 'négro', 'nègre', 'négresse',
+    'youpin', 'youpine', 'youtre', 'chinetoque', 'bridé',
+    'pédé', 'pédale', 'tapette', 'gouine', 'tantouse',
+}
 
 # English vulgar words that unlock vulgar French results
 # If someone searches these, they want the vulgar translations
@@ -206,7 +215,7 @@ def main():
 
     # Build set of vulgar French words from dictionary tags
     print("Identifying vulgar words from tags...")
-    vulgar_french = set()
+    vulgar_french = set(UNTAGGED_OFFENSIVE)  # Start with known untagged slurs
     for fr_word, entries in full_dict['words'].items():
         for entry in entries:
             # Check entry-level tags
@@ -220,7 +229,7 @@ def main():
                 if sense_tags & VULGAR_TAGS:
                     vulgar_french.add(fr_word)
                     break
-    print(f"  Found {len(vulgar_french)} vulgar words")
+    print(f"  Found {len(vulgar_french)} vulgar/offensive words")
 
     # Pre-compute dominant POS for each word
     # e.g., "sortir" is mostly a verb (2 entries) vs noun (1 entry)

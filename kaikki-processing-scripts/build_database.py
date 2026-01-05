@@ -137,12 +137,12 @@ def build_database(input_path: Path, output_path: Path, lang_code: str):
             if senses and all('abbreviation' in s.get('glosses', [''])[0].lower() for s in senses):
                 continue
 
-            # Skip entries where all senses are obsolete
-            def is_obsolete(sense):
+            # Skip entries where all senses are obsolete or archaic
+            def is_obsolete_or_archaic(sense):
                 gloss = sense.get('glosses', [''])[0].lower()
                 tags = [t.lower() for t in sense.get('tags', [])]
-                return 'obsolete' in gloss or 'obsolete' in tags
-            if senses and all(is_obsolete(s) for s in senses):
+                return 'obsolete' in gloss or 'obsolete' in tags or 'archaic' in gloss or 'archaic' in tags
+            if senses and all(is_obsolete_or_archaic(s) for s in senses):
                 continue
 
             # Skip "form-of" entries (e.g., "vis" as verb form of vivre)

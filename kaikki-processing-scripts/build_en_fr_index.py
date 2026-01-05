@@ -17,6 +17,25 @@ import re
 from pathlib import Path
 from collections import defaultdict
 
+# Tags that indicate vulgar/offensive content in dictionary entries
+VULGAR_TAGS = {'vulgar', 'offensive'}
+
+# English vulgar words that unlock vulgar French results
+# If someone searches these, they want the vulgar translations
+VULGAR_ENGLISH = {
+    # Direct vulgar words
+    'fuck', 'fucking', 'fucked', 'fucker', 'shit', 'shitty', 'bullshit',
+    'ass', 'asshole', 'arse', 'arsehole', 'bitch', 'whore', 'slut', 'cunt',
+    'cock', 'dick', 'piss', 'pissed', 'bastard', 'damn', 'damned',
+    'crap', 'crappy', 'screw', 'screwed', 'balls', 'butt', 'butthole',
+    # Body parts (vulgar context)
+    'penis', 'vagina', 'testicle', 'testicles', 'anus',
+    # Related words
+    'prostitute', 'brothel', 'whorehouse', 'pimp',
+    'defecate', 'urinate', 'fart', 'cum', 'ejaculate',
+    'bugger', 'bum', 'turd', 'prick', 'jerk',
+}
+
 # English words that commonly appear in explanatory gloss text but aren't translations
 # These get false matches from phrases like "but did not", "whether by", "is used when"
 ENGLISH_STOPWORDS = {
@@ -184,6 +203,24 @@ def main():
     print("Loading dictionary...")
     with gzip.open(base_dir / 'web/data/fr-dict.json.gz', 'rt', encoding='utf-8') as f:
         full_dict = json.load(f)
+
+    # Build set of vulgar French words from dictionary tags
+    print("Identifying vulgar words from tags...")
+    vulgar_french = set()
+    for fr_word, entries in full_dict['words'].items():
+        for entry in entries:
+            # Check entry-level tags
+            entry_tags = set(entry.get('tags', []))
+            if entry_tags & VULGAR_TAGS:
+                vulgar_french.add(fr_word)
+                break
+            # Check sense-level tags
+            for sense in entry.get('senses', []):
+                sense_tags = set(sense.get('tags', []))
+                if sense_tags & VULGAR_TAGS:
+                    vulgar_french.add(fr_word)
+                    break
+    print(f"  Found {len(vulgar_french)} vulgar words")
 
     # Pre-compute dominant POS for each word
     # e.g., "sortir" is mostly a verb (2 entries) vs noun (1 entry)
@@ -416,9 +453,16 @@ def main():
             if fr_word not in best_scores or score > best_scores[fr_word]:
                 best_scores[fr_word] = score
 
+        # Filter vulgar French words unless English query is vulgar
+        # e.g., "cow" shouldn't show "putain", but "whore" should show "pute"
+        if en_word not in VULGAR_ENGLISH:
+            best_scores = {fr: score for fr, score in best_scores.items()
+                          if fr not in vulgar_french}
+
         # Sort by score descending, limit to top 10
         sorted_fr = sorted(best_scores.items(), key=lambda x: -x[1])[:10]
-        final_index[en_word] = [fr for fr, _ in sorted_fr]
+        if sorted_fr:  # Only add if there are non-vulgar results
+            final_index[en_word] = [fr for fr, _ in sorted_fr]
 
     print(f"Index has {len(final_index)} English words")
 

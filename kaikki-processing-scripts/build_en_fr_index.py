@@ -101,7 +101,11 @@ def main():
                     # Top 1000 words get 200+ points, top 10k get 100+ points
                     if fr_word in freq_ranks:
                         rank = freq_ranks[fr_word]
-                        score += max(0, 300 - rank // 10)  # Top words get up to 300
+                        score += max(0, 300 - rank // 10)
+
+                    # Bonus for being first extracted word in gloss
+                    if i == 0:
+                        score += 50
 
                     # Bonus for being at the start of gloss (must be complete word)
                     # Match "to speak" but not "to speaker" or "to see oneself"
@@ -134,8 +138,12 @@ def main():
                         score += 50
 
                     # Bonus for first sense (primary meaning)
+                    # This is important - secondary senses shouldn't beat primary meanings
                     if sense_idx == 0:
-                        score += 50
+                        score += 75
+                    elif sense_idx == 1:
+                        score += 25
+                    # Later senses get no bonus (implicit penalty vs first sense)
 
                     # Bonus for single-word French
                     if word_count == 1:

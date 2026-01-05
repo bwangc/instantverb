@@ -1107,10 +1107,15 @@
         });
 
         // Language toggle
-        langToggle.addEventListener('click', () => {
-            isEnMode = !isEnMode;
+        function setLangMode(enMode) {
+            isEnMode = enMode;
             langToggle.textContent = isEnMode ? 'EN→FR' : 'FR→EN';
             search.placeholder = isEnMode ? 'Search English words...' : 'Search French words...';
+            localStorage.setItem('langMode', isEnMode ? 'en' : 'fr');
+        }
+
+        langToggle.addEventListener('click', () => {
+            setLangMode(!isEnMode);
             // Re-search if there's a query
             const q = search.value.trim();
             if (q) {
@@ -1122,6 +1127,11 @@
                 }
             }
         });
+
+        // Restore saved language mode
+        if (localStorage.getItem('langMode') === 'en') {
+            setLangMode(true);
+        }
 
         // Start loading immediately
         loadDictionary();

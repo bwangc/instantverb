@@ -29,6 +29,13 @@ def simplify_entry(entry: dict) -> dict:
         # Skip Louisiana-specific definitions
         if 'Louisiana' in sense.get('tags', []):
             continue
+        # Skip obsolete/archaic senses
+        tags_lower = [t.lower() for t in sense.get('tags', [])]
+        gloss_lower = (sense.get('glosses', [''])[0] or '').lower()
+        if 'obsolete' in tags_lower or 'obsolete' in gloss_lower:
+            continue
+        if 'archaic' in tags_lower or 'archaic' in gloss_lower:
+            continue
         s = {}
         if 'glosses' in sense:
             s['gloss'] = sense['glosses'][0] if sense['glosses'] else None

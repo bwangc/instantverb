@@ -152,6 +152,33 @@ def test_conjugated_forms_filtered(index):
     return "conjugated_forms_filtered", passed, len(must_be_filtered), failures
 
 
+def test_word_categories(index):
+    """Check that common word categories return good results."""
+    categories = {
+        'numbers': ['one', 'two', 'three', 'four', 'five', 'ten', 'hundred'],
+        'days': ['monday', 'tuesday', 'wednesday', 'friday', 'sunday'],
+        'months': ['january', 'march', 'may', 'july', 'december'],
+        'colors': ['red', 'blue', 'green', 'yellow', 'black', 'white'],
+        'body': ['head', 'eye', 'ear', 'nose', 'mouth', 'hand', 'foot'],
+        'family': ['mother', 'father', 'brother', 'sister', 'son', 'daughter'],
+    }
+
+    failures = []
+    total = 0
+    passed = 0
+
+    for category, words in categories.items():
+        for word in words:
+            total += 1
+            results = index.get(word, [])
+            if not results:
+                failures.append(f"{word} ({category}): no results")
+            else:
+                passed += 1
+
+    return "word_categories", passed, total, failures
+
+
 def test_no_junk_entries(index, freq):
     """Check for obviously bad entries (too short, has digits, etc)."""
     failures = []
@@ -190,6 +217,7 @@ def main():
         test_common_words_have_results,
         lambda i: test_top_result_quality(i, freq),
         test_conjugated_forms_filtered,
+        test_word_categories,
         lambda i: test_no_junk_entries(i, freq),
     ]
 

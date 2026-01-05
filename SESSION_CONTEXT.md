@@ -85,9 +85,29 @@ python3 kaikki-processing-scripts/test_en_fr.py          # Run tests
 2. **Edge cases with different conceptual structure** - Some English words
    don't map directly (e.g., "least" → French uses "au moins" phrase)
 
+## Test Suite
+
+The test suite (`test_en_fr.py`) checks:
+1. **noise_words_removed** - Stopwords like "did", "does", "has" filtered
+2. **base_verbs_work** - do→faire, be→être, have→avoir, etc.
+3. **common_words_have_results** - 103 common words all return results
+4. **top_result_quality** - 67 common words have quality #1 results
+5. **conjugated_forms_filtered** - was, were, did, does, has filtered
+6. **word_categories** - numbers, days, months, colors, body, family all work
+7. **no_junk_entries** - No single-char or numeric junk in top results
+
+## Quality Metrics
+
+For common English words (200+):
+- 100% have results
+- 99.5% have common French word as #1
+- 100% have common French in top 3
+
 ## Git Commits
 
 Recent commits:
 - "EN→FR: Add stopword filter and test suite"
 - "EN→FR: Fix phrase-over-single-word issues"
 - "EN→FR: Fix œ ligature and compound detection"
+- "EN→FR: Handle proper noun stopwords (e.g., May)"
+- "EN→FR: Filter junk English entries"

@@ -33,6 +33,20 @@ The algorithm is working well. Test suite passes all checks:
    - "tool (something...)" was incorrectly detected as compound
    - Now: tool→outil (was échardonnoir)
 
+5. **Proper noun penalty** - POS='name' entries (place names like "Amour" river)
+   - Penalized to avoid geographic terms polluting common word searches
+   - Fixed: river→rivière (was amour), ocean→océan
+
+6. **Elaboration word detection** - Expanded compound exclusion list
+   - Now includes: to, of, and, or, in, for, as, that, which, with
+   - Fixed: field→champ now in top 2 (was missing)
+
+7. **Question words restored** - who/what/which removed from stopwords
+   - who→qui, what→quoi, which→quel now work
+
+8. **Time adverbs restored** - always/never removed from stopwords
+   - always→toujours, never→jamais now work
+
 ## Scoring Algorithm Summary
 
 The algorithm extracts English words from French dictionary glosses and scores French words based on:
@@ -47,6 +61,7 @@ The algorithm extracts English words from French dictionary glosses and scores F
 
 Penalties applied:
 - **Interjection**: -150 (e.g., "stop!" as intj)
+- **Proper noun**: -200 for POS='name' (place names like "Amour" river)
 - **Minor POS**: -100 when word has dominant POS elsewhere
 - **Loan word**: -100 if French word == English word and not in frequency list
 - **Compound noun**: -150 for "X chocolate", "X sign" type compounds
@@ -93,8 +108,9 @@ The test suite (`test_en_fr.py`) checks:
 3. **common_words_have_results** - 103 common words all return results
 4. **top_result_quality** - 67 common words have quality #1 results
 5. **conjugated_forms_filtered** - was, were, did, does, has filtered
-6. **word_categories** - numbers, days, months, colors, body, family all work
-7. **no_junk_entries** - No single-char or numeric junk in top results
+6. **word_categories** - numbers, days, months, colors, body, family, time_adverbs, questions
+7. **polysemous_words** - Words with multiple meanings (bear, field, watch, etc.)
+8. **no_junk_entries** - No single-char or numeric junk in top results
 
 ## Quality Metrics
 
@@ -106,8 +122,8 @@ For common English words (200+):
 ## Git Commits
 
 Recent commits:
-- "EN→FR: Add stopword filter and test suite"
-- "EN→FR: Fix phrase-over-single-word issues"
-- "EN→FR: Fix œ ligature and compound detection"
-- "EN→FR: Handle proper noun stopwords (e.g., May)"
-- "EN→FR: Filter junk English entries"
+- "EN→FR: Keep question words (who/what/which) as searchable"
+- "EN→FR: Keep 'always'/'never' as searchable words"
+- "EN→FR: Add proper noun penalty and polysemous word tests"
+- "EN→FR: Add word_categories test and update session context"
+- "EN→FR: Fix phrasal adjectives, abbreviations, expand compounds"

@@ -22,6 +22,24 @@ MISSING_OFFENSIVE_TAGS = {
     'boucaque': ['ethnic', 'offensive', 'slur'],
 }
 
+def normalize_tags(tags: list) -> list:
+    """Normalize tags: m/f first, remove by-personal-gender, shorten gender names."""
+    result = []
+    gender_tags = []
+
+    for tag in tags:
+        if tag == 'masculine':
+            gender_tags.append('m')
+        elif tag == 'feminine':
+            gender_tags.append('f')
+        elif tag == 'by-personal-gender':
+            continue  # Remove this tag
+        else:
+            result.append(tag)
+
+    # Gender tags first, then others
+    return gender_tags + result
+
 def simplify_entry(entry: dict) -> dict:
     """Extract only the fields we need for the dictionary."""
     result = {
@@ -46,7 +64,10 @@ def simplify_entry(entry: dict) -> dict:
         if 'glosses' in sense:
             s['gloss'] = sense['glosses'][0] if sense['glosses'] else None
         if 'tags' in sense:
-            s['tags'] = [t for t in sense['tags'] if t != 'Louisiana']
+            tags = [t for t in sense['tags'] if t != 'Louisiana']
+            tags = normalize_tags(tags)
+            if tags:
+                s['tags'] = tags
         if 'examples' in sense:
             examples = []
             for ex in sense['examples'][:2]:  # Limit to 2 examples
@@ -94,7 +115,7 @@ def simplify_entry(entry: dict) -> dict:
                     continue
                 f = {'form': form['form']}
                 if tags:
-                    f['tags'] = tags
+                    f['tags'] = normalize_tags(tags)
                 if 'ipa' in form:
                     f['ipa'] = form['ipa']
                 forms.append(f)

@@ -17,6 +17,34 @@ import re
 from pathlib import Path
 from collections import defaultdict
 
+# English words that commonly appear in explanatory gloss text but aren't translations
+# These get false matches from phrases like "but did not", "whether by", "is used when"
+ENGLISH_STOPWORDS = {
+    # Articles and determiners
+    'a', 'an', 'the', 'this', 'that', 'these', 'those',
+    # Prepositions
+    'of', 'in', 'on', 'at', 'by', 'for', 'to', 'from', 'with', 'into', 'onto',
+    'about', 'after', 'before', 'between', 'through', 'during', 'without',
+    'under', 'over', 'above', 'below', 'against', 'among', 'within',
+    # Conjunctions
+    'and', 'or', 'but', 'if', 'than', 'as', 'so', 'yet', 'nor',
+    'whether', 'either', 'neither', 'both',
+    # Pronouns
+    'it', 'its', 'he', 'she', 'they', 'we', 'who', 'which', 'what',
+    # Auxiliary/modal verbs - conjugated forms are noise, but keep base forms
+    # (people search "be" for être, "have" for avoir, "do" for faire)
+    'is', 'are', 'was', 'were', 'been', 'being',  # but keep 'be'
+    'has', 'had', 'having',  # but keep 'have'
+    'does', 'did', 'doing', 'done',  # but keep 'do'
+    'will', 'would', 'shall', 'should', 'may', 'might', 'must', 'can', 'could',
+    # Common adverbs in explanations
+    'not', 'also', 'often', 'usually', 'especially', 'particularly',
+    'generally', 'typically', 'sometimes', 'always', 'never',
+    # Other noise words
+    'such', 'some', 'any', 'each', 'every', 'other', 'another',
+    'up', 'out', 'off',  # phrasal verb particles
+}
+
 def extract_english_words(gloss):
     """Extract meaningful English words from a gloss."""
     # Remove parenthetical content like "(something)"
@@ -28,13 +56,14 @@ def extract_english_words(gloss):
 
     words = []
     for word in gloss.lower().split():
-        # Skip very short words and common particles
+        # Skip very short words
         if len(word) < 2:
-            continue
-        if word in ('to', 'a', 'an', 'the', 'of', 'or', 'as', 'in', 'on', 'at', 'by', 'for', 'it', 'up'):
             continue
         # Clean punctuation
         word = re.sub(r'[^a-z]', '', word)
+        # Skip stopwords
+        if word in ENGLISH_STOPWORDS:
+            continue
         if len(word) >= 2:
             words.append(word)
     return words

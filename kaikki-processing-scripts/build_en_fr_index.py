@@ -140,10 +140,11 @@ def main():
                     # Bonus for first sense (primary meaning)
                     # This is important - secondary senses shouldn't beat primary meanings
                     if sense_idx == 0:
-                        score += 75
+                        score += 100
                     elif sense_idx == 1:
-                        score += 25
-                    # Later senses get no bonus (implicit penalty vs first sense)
+                        score += 50
+                    elif sense_idx >= 5:
+                        score -= 50  # Penalize very late senses (obscure meanings)
 
                     # Bonus for single-word French
                     if word_count == 1:

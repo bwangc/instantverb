@@ -545,6 +545,12 @@
 
             if (allEntries.length > 0) {
                 let html = '';
+                // Sort form notes: exact matches first
+                formNotes.sort((a, b) => {
+                    const aExact = a.form === queryLower ? 0 : 1;
+                    const bExact = b.form === queryLower ? 0 : 1;
+                    return aExact - bExact;
+                });
                 // Show conjugation notes for all matching forms
                 for (const note of formNotes) {
                     const audioBtn = note.audioUrl ? ` <button class="audio-btn" onclick="playAudio('${note.audioUrl}')">&#9658;</button>` : '';

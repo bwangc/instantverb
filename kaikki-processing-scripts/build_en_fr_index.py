@@ -142,6 +142,23 @@ def main():
     with gzip.open(base_dir / 'web/data/fr-dict.json.gz', 'rt', encoding='utf-8') as f:
         full_dict = json.load(f)
 
+    # Pre-compute dominant POS for each word
+    # e.g., "sortir" is mostly a verb (2 entries) vs noun (1 entry)
+    print("Computing dominant POS...")
+    dominant_pos = {}
+    for fr_word, entries in full_dict['words'].items():
+        pos_counts = {}
+        for entry in entries:
+            pos = entry.get('pos', '')
+            pos_counts[pos] = pos_counts.get(pos, 0) + 1
+        if pos_counts:
+            # Find the most common POS
+            max_pos = max(pos_counts, key=pos_counts.get)
+            max_count = pos_counts[max_pos]
+            # Only mark as dominant if it has more entries than others
+            if max_count > 1 or len(pos_counts) == 1:
+                dominant_pos[fr_word] = max_pos
+
     # Build reverse index with scoring
     # Structure: english_word -> [(french_word, score), ...]
     print("Building reverse index...")
@@ -183,6 +200,11 @@ def main():
                         # e.g., "stop!" for "stop" should prefer "arrêter"
                         if pos == 'intj':
                             score -= 150
+
+                        # PENALTY for minor POS usage
+                        # e.g., "sortir" is mostly a verb, so penalize the noun sense
+                        if fr_word in dominant_pos and pos != dominant_pos[fr_word]:
+                            score -= 100  # Minor POS penalty
 
                         # PENALTY for loan words (French word same as English query)
                         # But only if not a common French word (in frequency list)

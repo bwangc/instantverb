@@ -21,14 +21,6 @@ from collections import defaultdict
 # Note: 'derogatory' is too broad (638 words including bled, bœuf, aboyer)
 VULGAR_TAGS = {'vulgar', 'offensive', 'slur', 'ethnic'}
 
-# Slurs/offensive words that aren't properly tagged in source data
-# These have extremely offensive glosses but missing tags
-UNTAGGED_OFFENSIVE = {
-    'boucaque', 'bougnoul', 'bougnoule', 'négro', 'nègre', 'négresse',
-    'youpin', 'youpine', 'youtre', 'chinetoque', 'bridé',
-    'pédé', 'pédale', 'tapette', 'gouine', 'tantouse',
-}
-
 # English vulgar words that unlock vulgar French results
 # If someone searches these, they want the vulgar translations
 VULGAR_ENGLISH = {
@@ -215,7 +207,7 @@ def main():
 
     # Build set of vulgar French words from dictionary tags
     print("Identifying vulgar words from tags...")
-    vulgar_french = set(UNTAGGED_OFFENSIVE)  # Start with known untagged slurs
+    vulgar_french = set()
     for fr_word, entries in full_dict['words'].items():
         for entry in entries:
             # Check entry-level tags

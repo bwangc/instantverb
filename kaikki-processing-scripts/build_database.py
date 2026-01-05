@@ -68,17 +68,20 @@ def simplify_entry(entry: dict) -> dict:
     if 'etymology_text' in entry:
         result['etymology'] = entry['etymology_text']
 
-    # Forms (for verbs, keep conjugation)
-    if entry.get('pos') == 'verb' and 'forms' in entry:
+    # Forms (for verbs, adjectives, nouns)
+    if entry.get('pos') in ('verb', 'adj', 'noun') and 'forms' in entry:
         forms = []
         for form in entry['forms']:
-            if 'form' in form and 'tags' in form:
+            if 'form' in form:
                 # Skip meta entries
-                if any(t in form['tags'] for t in ['table-tags', 'inflection-template']):
+                tags = form.get('tags', [])
+                if any(t in tags for t in ['table-tags', 'inflection-template']):
                     continue
-                if 'multiword-construction' in form['tags']:
+                if 'multiword-construction' in tags:
                     continue
-                f = {'form': form['form'], 'tags': form['tags']}
+                f = {'form': form['form']}
+                if tags:
+                    f['tags'] = tags
                 if 'ipa' in form:
                     f['ipa'] = form['ipa']
                 forms.append(f)
@@ -136,13 +139,16 @@ def build_database(input_path: Path, output_path: Path, lang_code: str):
 
             # Skip "form-of" entries (e.g., "vis" as verb form of vivre)
             # These just say "inflection of X" rather than actual definitions
-            is_form_of = False
-            for sense in entry.get('senses', []):
-                if 'form-of' in sense.get('tags', []):
-                    is_form_of = True
-                    break
-            if is_form_of:
-                continue
+            # But keep form-of for determiners and pronouns (vos, mes, ceux, etc.)
+            pos = entry.get('pos', '')
+            if pos not in ('det', 'pron'):
+                is_form_of = False
+                for sense in entry.get('senses', []):
+                    if 'form-of' in sense.get('tags', []):
+                        is_form_of = True
+                        break
+                if is_form_of:
+                    continue
 
             simplified = simplify_entry(entry)
             if simplified.get('senses'):  # Only keep entries with definitions

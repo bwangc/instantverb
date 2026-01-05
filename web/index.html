@@ -335,8 +335,8 @@
             try {
                 // Load all in parallel
                 const [dictRes, formsRes, audioRes] = await Promise.all([
-                    fetch('data/fr-10k.json'),
-                    fetch('data/fr-10k-forms.json'),
+                    fetch('data/fr-dict.json'),
+                    fetch('data/fr-forms.json'),
                     fetch('data/fr-form-audio.json')
                 ]);
                 dict = await dictRes.json();

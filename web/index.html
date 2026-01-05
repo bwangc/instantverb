@@ -937,14 +937,30 @@
             return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
         }
 
+        // Check if a word has vulgar/offensive tags
+        const VULGAR_TAGS = new Set(['vulgar', 'offensive', 'slur', 'ethnic']);
+        function isVulgarWord(word) {
+            const entries = dict.words[word];
+            if (!entries) return false;
+            for (const entry of entries) {
+                for (const sense of entry.senses || []) {
+                    const tags = sense.tags || [];
+                    if (tags.some(t => VULGAR_TAGS.has(t))) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         // Autocomplete
         function getSuggestions(query) {
             if (!query || !isReady) return [];
             const q = normalize(query);
 
-            // Dictionary words (infinitives, nouns, etc.)
-            const dictStarts = wordList.filter(w => normalize(w).startsWith(q));
-            const dictContains = wordList.filter(w => !normalize(w).startsWith(q) && normalize(w).includes(q));
+            // Dictionary words (infinitives, nouns, etc.) - filter out vulgar words
+            const dictStarts = wordList.filter(w => normalize(w).startsWith(q) && !isVulgarWord(w));
+            const dictContains = wordList.filter(w => !normalize(w).startsWith(q) && normalize(w).includes(q) && !isVulgarWord(w));
 
             // Conjugated forms
             const formKeys = formIndex ? Object.keys(formIndex) : [];

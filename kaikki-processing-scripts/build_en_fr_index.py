@@ -155,7 +155,11 @@ def load_frequency_ranks(base_dir):
         for i, line in enumerate(f):
             parts = line.strip().split('\t')
             if len(parts) >= 2:
-                ranks[parts[1].lower()] = i
+                word = parts[1].lower()
+                ranks[word] = i
+                # Also add œ/oe variants (freq list uses oe, dict uses œ)
+                if 'oe' in word:
+                    ranks[word.replace('oe', 'œ')] = i
     return ranks
 
 def main():
@@ -299,7 +303,8 @@ def main():
                         # Check for compound phrase patterns in gloss
                         # e.g., "salty dog", "smart set", "bathroom break"
                         # If English word is followed by another word before comma, it's a modifier
-                        first_segment = re.split(r'[,;]', gloss_lower)[0].strip()
+                        # Remove parentheticals first: "tool (something)" -> "tool"
+                        first_segment = re.split(r'[,;]', re.sub(r'\s*\([^)]*\)', '', gloss_lower))[0].strip()
                         segment_words = first_segment.split()
                         if len(segment_words) >= 2:
                             # Check if en_word is first and followed by another content word

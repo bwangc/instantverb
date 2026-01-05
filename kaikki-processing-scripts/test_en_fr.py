@@ -131,6 +131,23 @@ def test_top_result_quality(index, freq):
     return "top_result_quality", len(common) - len(failures), len(common), failures
 
 
+def test_conjugated_forms_filtered(index):
+    """Check that problematic English conjugated forms are filtered."""
+    # Conjugated forms like "does", "has" often appear in descriptive text
+    # and should be filtered as stopwords. Forms like "goes", "tries" are
+    # harder to filter but are a known issue - they often return noise.
+    must_be_filtered = ['does', 'has', 'did', 'was', 'were']
+
+    failures = []
+    for conj in must_be_filtered:
+        results = index.get(conj, [])
+        if results:
+            failures.append(f"{conj}: should be filtered, got {results[:3]}")
+
+    passed = len(must_be_filtered) - len(failures)
+    return "conjugated_forms_filtered", passed, len(must_be_filtered), failures
+
+
 def test_no_junk_entries(index, freq):
     """Check for obviously bad entries (too short, has digits, etc)."""
     failures = []
@@ -168,6 +185,7 @@ def main():
         test_base_verbs_work,
         test_common_words_have_results,
         lambda i: test_top_result_quality(i, freq),
+        test_conjugated_forms_filtered,
         lambda i: test_no_junk_entries(i, freq),
     ]
 

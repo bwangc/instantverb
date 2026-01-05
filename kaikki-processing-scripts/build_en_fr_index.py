@@ -283,6 +283,31 @@ def main():
                         is_start_match = not is_excluded and any(re.match(p, gloss_lower) for p in start_patterns)
                         is_alt_match = any(re.search(p, gloss_lower) for p in alt_patterns)
 
+                        # For multi-word French phrases, be stricter about start matches
+                        # Glosses like "Used to introduce..." or "Eventually safe from..."
+                        # are descriptions, not translations
+                        if word_count > 1 and is_start_match:
+                            # Check if original gloss starts with capital (description pattern)
+                            # e.g., "Used to introduce" vs "because"
+                            first_word = gloss.split()[0] if gloss else ''
+                            if first_word and first_word[0].isupper() and first_word.lower() != 'i':
+                                is_start_match = False  # Likely a description, not translation
+                            # Also reject if gloss is long (descriptions tend to be verbose)
+                            if len(gloss) > 50 and ';' not in gloss and ',' not in gloss[:30]:
+                                is_start_match = False
+
+                        # Check for compound phrase patterns in gloss
+                        # e.g., "salty dog", "smart set", "bathroom break"
+                        # If English word is followed by another word before comma, it's a modifier
+                        first_segment = re.split(r'[,;]', gloss_lower)[0].strip()
+                        segment_words = first_segment.split()
+                        if len(segment_words) >= 2:
+                            # Check if en_word is first and followed by another content word
+                            if segment_words[0] == en_word and segment_words[1] not in ('to', 'of', 'and', 'or'):
+                                # This is a compound like "salty dog" - penalize heavily
+                                is_start_match = False
+                                score -= 100
+
                         if is_start_match or is_alt_match:
                             # Extra bonus if this is the ONLY meaning (not "to eat; to drink")
                             # Semicolons separate different meanings, commas are usually synonyms

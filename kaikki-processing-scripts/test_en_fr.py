@@ -26,7 +26,11 @@ def load_data():
         for line in f:
             parts = line.strip().split('\t')
             if len(parts) >= 2:
-                freq.add(parts[1].lower())
+                word = parts[1].lower()
+                freq.add(word)
+                # Also add œ/oe variants (freq list uses oe, dict uses œ)
+                if 'oe' in word:
+                    freq.add(word.replace('oe', 'œ'))
 
     return index, freq
 

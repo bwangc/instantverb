@@ -49,6 +49,7 @@
         #search {
             font-size: 1.1rem;
             padding: 14px 24px;
+            padding-right: 70px;
             border: 1px solid #3a3a5e;
             border-radius: 24px;
             background: #252542;
@@ -57,6 +58,26 @@
             outline: none;
             transition: all 0.2s;
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .lang-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #3a3a5e;
+            border: none;
+            color: #a5b4fc;
+            padding: 6px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.15s;
+        }
+
+        .lang-toggle:hover {
+            background: #4a4a7e;
         }
 
         #search:hover {
@@ -309,6 +330,7 @@
         <h1>Instantverb</h1>
         <div class="input-wrapper">
             <input type="text" id="search" placeholder="Search French words..." autocomplete="off" autofocus>
+            <button class="lang-toggle" id="langToggle">FR→EN</button>
             <div class="suggestions" id="suggestions"></div>
         </div>
         <div class="status loading" id="status">Loading dictionary...</div>
@@ -320,15 +342,18 @@
         let dict = null;
         let formIndex = null;  // conjugated form -> infinitive(s)
         let formAudio = null;  // conjugated form -> audio URL
+        let enFrIndex = null;  // english word -> french words
         let wordList = [];  // Ordered list for autocomplete
         let isReady = false;
         let selectedIdx = -1;
+        let isEnMode = false;  // EN→FR search mode
 
         const search = document.getElementById('search');
         const result = document.getElementById('result');
         const status = document.getElementById('status');
         const container = document.getElementById('container');
         const suggestions = document.getElementById('suggestions');
+        const langToggle = document.getElementById('langToggle');
 
         // Fetch and decompress gzipped JSON
         async function fetchGzip(url) {
@@ -343,14 +368,16 @@
         async function loadDictionary() {
             try {
                 // Load all in parallel
-                const [dictData, formsData, audioRes] = await Promise.all([
+                const [dictData, formsData, audioRes, enFrData] = await Promise.all([
                     fetchGzip('data/fr-dict.json.gz'),
                     fetchGzip('data/fr-forms.json.gz'),
-                    fetch('data/fr-form-audio.json')
+                    fetch('data/fr-form-audio.json'),
+                    fetchGzip('data/en-fr.json.gz')
                 ]);
                 dict = dictData;
                 formIndex = formsData.forms;
                 formAudio = await audioRes.json();
+                enFrIndex = enFrData;
                 wordList = Object.keys(dict.words);  // Preserves frequency order
                 isReady = true;
                 status.style.display = 'none';
@@ -558,6 +585,41 @@
                 }
                 html += allEntries.map(renderEntry).join('');
                 result.innerHTML = html;
+            } else {
+                result.innerHTML = `<div class="no-results">No results for "${query}"</div>`;
+            }
+        }
+
+        // English to French search
+        function doEnSearch(query) {
+            if (!isReady || !query || !enFrIndex) {
+                result.innerHTML = '';
+                container.classList.remove('has-results');
+                return;
+            }
+
+            container.classList.add('has-results');
+
+            const queryLower = query.toLowerCase();
+            const frenchWords = enFrIndex[queryLower];
+
+            if (frenchWords && frenchWords.length > 0) {
+                let entries = [];
+                for (const frWord of frenchWords) {
+                    if (dict.words[frWord]) {
+                        for (const entry of dict.words[frWord]) {
+                            entries.push(entry);
+                        }
+                    }
+                }
+
+                if (entries.length > 0) {
+                    let html = `<div class="conjugation-note">"${query}" → ${frenchWords.join(', ')}</div>`;
+                    html += entries.map(renderEntry).join('');
+                    result.innerHTML = html;
+                } else {
+                    result.innerHTML = `<div class="no-results">No French entries found for "${query}"</div>`;
+                }
             } else {
                 result.innerHTML = `<div class="no-results">No results for "${query}"</div>`;
             }
@@ -981,6 +1043,11 @@
         // Event handlers
         search.addEventListener('input', () => {
             selectedIdx = -1;
+            // No autocomplete for EN mode
+            if (isEnMode) {
+                hideSuggestions();
+                return;
+            }
             updateSuggestions(search.value.trim().toLowerCase());
         });
 
@@ -988,8 +1055,14 @@
             const items = suggestions.querySelectorAll('.suggestion');
             if (!suggestions.classList.contains('visible')) {
                 if (e.key === 'Enter') {
-                    const q = search.value.trim().toLowerCase();
-                    if (q) doSearch(q);
+                    const q = search.value.trim();
+                    if (q) {
+                        if (isEnMode) {
+                            doEnSearch(q);
+                        } else {
+                            doSearch(q.toLowerCase());
+                        }
+                    }
                 }
                 return;
             }
@@ -1007,8 +1080,14 @@
                 if (selectedIdx >= 0) {
                     selectWord(items[selectedIdx].dataset.word);
                 } else {
-                    const q = search.value.trim().toLowerCase();
-                    if (q) doSearch(q);
+                    const q = search.value.trim();
+                    if (q) {
+                        if (isEnMode) {
+                            doEnSearch(q);
+                        } else {
+                            doSearch(q.toLowerCase());
+                        }
+                    }
                     hideSuggestions();
                 }
             } else if (e.key === 'Escape') {
@@ -1024,6 +1103,23 @@
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.input-wrapper')) {
                 hideSuggestions();
+            }
+        });
+
+        // Language toggle
+        langToggle.addEventListener('click', () => {
+            isEnMode = !isEnMode;
+            langToggle.textContent = isEnMode ? 'EN→FR' : 'FR→EN';
+            search.placeholder = isEnMode ? 'Search English words...' : 'Search French words...';
+            // Re-search if there's a query
+            const q = search.value.trim();
+            if (q) {
+                hideSuggestions();
+                if (isEnMode) {
+                    doEnSearch(q);
+                } else {
+                    doSearch(q.toLowerCase());
+                }
             }
         });
 

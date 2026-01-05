@@ -179,6 +179,37 @@ def test_word_categories(index):
     return "word_categories", passed, total, failures
 
 
+def test_polysemous_words(index, freq):
+    """Check words with multiple meanings have reasonable results.
+
+    These are words where verb/noun or different senses compete.
+    We just want to ensure the expected translation is somewhere in top 5.
+    """
+    # (english_word, expected_in_top5, description)
+    polysemous = [
+        ('bear', 'ours', 'animal meaning'),
+        ('field', 'champ', 'general meaning'),
+        ('watch', 'montre', 'noun meaning'),
+        ('light', 'lumière', 'noun meaning'),
+        ('bark', 'aboyer', 'dog sound'),  # vs tree bark
+        ('spring', 'printemps', 'season'),  # vs spring water, spring (bounce)
+        ('bat', 'chauve-souris', 'animal'),  # vs baseball bat
+        ('rock', 'rocher', 'stone'),  # vs rock music
+        ('match', 'allumette', 'fire starter'),  # vs sports match
+        ('ring', 'anneau', 'jewelry'),  # vs boxing ring
+    ]
+
+    failures = []
+    for en_word, expected, desc in polysemous:
+        results = index.get(en_word, [])
+        if not results:
+            failures.append(f"{en_word}: no results (expected '{expected}' for {desc})")
+        elif expected not in results[:5]:
+            failures.append(f"{en_word}: '{expected}' not in top 5 for {desc}, got {results[:5]}")
+
+    return "polysemous_words", len(polysemous) - len(failures), len(polysemous), failures
+
+
 def test_no_junk_entries(index, freq):
     """Check for obviously bad entries (too short, has digits, etc)."""
     failures = []
@@ -218,6 +249,7 @@ def main():
         lambda i: test_top_result_quality(i, freq),
         test_conjugated_forms_filtered,
         test_word_categories,
+        lambda i: test_polysemous_words(i, freq),
         lambda i: test_no_junk_entries(i, freq),
     ]
 

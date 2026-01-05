@@ -244,6 +244,12 @@ def main():
                         if pos == 'intj':
                             score -= 150
 
+                        # PENALTY for proper nouns (POS='name')
+                        # These are place names like "Amour" (Amur River) whose glosses
+                        # contain common words like "river", "ocean", "country" etc.
+                        if pos == 'name':
+                            score -= 200
+
                         # PENALTY for minor POS usage
                         # e.g., "sortir" is mostly a verb, so penalize the noun sense
                         if fr_word in dominant_pos and pos != dominant_pos[fr_word]:
@@ -318,7 +324,9 @@ def main():
                         segment_words = first_segment.split()
                         if len(segment_words) >= 2:
                             # Check if en_word is first and followed by another content word
-                            if segment_words[0] == en_word and segment_words[1] not in ('to', 'of', 'and', 'or'):
+                            # Exclude function words that introduce elaboration (not compounds)
+                            elaboration_words = ('to', 'of', 'and', 'or', 'in', 'for', 'as', 'that', 'which', 'with')
+                            if segment_words[0] == en_word and segment_words[1] not in elaboration_words:
                                 # This is a compound like "salty dog" - penalize heavily
                                 is_start_match = False
                                 score -= 100

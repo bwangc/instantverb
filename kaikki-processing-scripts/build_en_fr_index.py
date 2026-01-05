@@ -242,10 +242,16 @@ def main():
                         ]
                         # Exclude reflexive patterns, phrasal verbs, and verb+gerund
                         # "to see oneself", "to find out", "to give up", "to find each other", "to stop carrying" etc.
-                        phrasal = re.match(f'^to {en_word} (oneself|yourself|himself|herself|itself|ourselves|themselves|each other|one another|out|up|down|in|off|on|away|back|over|around|about|through)\\b', gloss_lower)
+                        phrasal_particles = r'(oneself|yourself|himself|herself|itself|ourselves|themselves|each other|one another|out|up|down|in|off|on|away|back|over|around|about|through)'
+                        phrasal_verb = re.match(f'^to {en_word} {phrasal_particles}\\b', gloss_lower)
+                        # Also catch adjective/noun phrasal forms: "cut out", "mixed up"
+                        phrasal_adj = re.match(f'^{en_word} {phrasal_particles}\\b', gloss_lower)
                         gerund = re.match(f'^to {en_word} \\w+ing\\b', gloss_lower)
+                        # Catch "short for X" abbreviation patterns
+                        abbreviation = re.match(f'^short for ', gloss_lower)
 
-                        is_start_match = not phrasal and not gerund and any(re.match(p, gloss_lower) for p in start_patterns)
+                        is_excluded = bool(phrasal_verb or phrasal_adj or gerund or abbreviation)
+                        is_start_match = not is_excluded and any(re.match(p, gloss_lower) for p in start_patterns)
                         is_alt_match = any(re.search(p, gloss_lower) for p in alt_patterns)
 
                         if is_start_match or is_alt_match:
@@ -296,10 +302,19 @@ def main():
                         elif pos in ('noun', 'adj'):
                             score += 20
                             # Penalize compound nouns where the word is just a modifier
-                            # e.g., "stop sign", "fire engine", "water bottle"
-                            compound_suffixes = ['sign', 'mark', 'board', 'line', 'light', 'engine',
-                                                'bottle', 'machine', 'box', 'man', 'woman', 'house',
-                                                'room', 'car', 'boat', 'plane', 'train', 'station']
+                            # e.g., "stop sign", "fire engine", "hot chocolate"
+                            compound_suffixes = [
+                                # Objects
+                                'sign', 'mark', 'board', 'line', 'light', 'engine', 'bottle',
+                                'machine', 'box', 'man', 'woman', 'house', 'room', 'car', 'boat',
+                                'plane', 'train', 'station', 'shop', 'store', 'office', 'school',
+                                # Food/drink compounds
+                                'chocolate', 'coffee', 'tea', 'water', 'juice', 'wine', 'beer',
+                                'milk', 'cake', 'pie', 'cream', 'sauce', 'soup', 'salad', 'bread',
+                                # Other common compounds
+                                'wave', 'storm', 'day', 'night', 'time', 'year', 'week', 'month',
+                                'war', 'game', 'show', 'film', 'movie', 'book', 'story', 'song',
+                            ]
                             gloss_words = gloss_lower.split()
                             if len(gloss_words) == 2 and gloss_words[1] in compound_suffixes:
                                 score -= 150  # Heavy penalty for compound modifier

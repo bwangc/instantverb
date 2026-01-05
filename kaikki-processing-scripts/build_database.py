@@ -128,6 +128,10 @@ def build_database(input_path: Path, output_path: Path, lang_code: str):
             if not word:
                 continue
 
+            # Skip junk entries with / in the word
+            if '/' in word:
+                continue
+
             # Skip character entries
             if entry.get('pos') == 'character':
                 continue

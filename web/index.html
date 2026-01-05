@@ -330,17 +330,26 @@
         const container = document.getElementById('container');
         const suggestions = document.getElementById('suggestions');
 
+        // Fetch and decompress gzipped JSON
+        async function fetchGzip(url) {
+            const res = await fetch(url);
+            const ds = new DecompressionStream('gzip');
+            const decompressed = res.body.pipeThrough(ds);
+            const text = await new Response(decompressed).text();
+            return JSON.parse(text);
+        }
+
         // Load dictionary in background
         async function loadDictionary() {
             try {
                 // Load all in parallel
-                const [dictRes, formsRes, audioRes] = await Promise.all([
-                    fetch('data/fr-dict.json'),
-                    fetch('data/fr-forms.json'),
+                const [dictData, formsData, audioRes] = await Promise.all([
+                    fetchGzip('data/fr-dict.json.gz'),
+                    fetchGzip('data/fr-forms.json.gz'),
                     fetch('data/fr-form-audio.json')
                 ]);
-                dict = await dictRes.json();
-                formIndex = (await formsRes.json()).forms;
+                dict = dictData;
+                formIndex = formsData.forms;
                 formAudio = await audioRes.json();
                 wordList = Object.keys(dict.words);  // Preserves frequency order
                 isReady = true;
@@ -429,13 +438,20 @@
             // Find ALL matching words (accent-insensitive)
             const matchingWords = findAllWords(query);
             let entries = [];
-            for (const word of matchingWords) {
-                if (dict.words[word]) {
-                    entries.push(...dict.words[word]);
+            for (const dictKey of matchingWords) {
+                if (dict.words[dictKey]) {
+                    for (const entry of dict.words[dictKey]) {
+                        entries.push({...entry, _key: dictKey});
+                    }
                 }
             }
-            // Sort: lowercase words first
+            // Sort: exact key matches first (same accents), then lowercase before uppercase
+            const queryLower = query.toLowerCase();
             entries.sort((a, b) => {
+                // Prefer entries whose dictionary key exactly matches query (same accents)
+                const aExact = a._key === queryLower ? 0 : 1;
+                const bExact = b._key === queryLower ? 0 : 1;
+                if (aExact !== bExact) return aExact - bExact;
                 const aLower = a.word[0] === a.word[0].toLowerCase() ? 0 : 1;
                 const bLower = b.word[0] === b.word[0].toLowerCase() ? 0 : 1;
                 return aLower - bLower;
@@ -484,10 +500,48 @@
                 }
             }
 
-            // Combine: verb entries first, then direct matches (deduplicated)
-            const seenWords = new Set(verbEntries.map(e => e.word + e.pos));
-            const dedupedEntries = entries.filter(e => !seenWords.has(e.word + e.pos));
-            const allEntries = [...verbEntries, ...dedupedEntries];
+            // Combine all entries, prioritizing exact matches
+            const seenWords = new Set();
+            const allEntries = [];
+
+            // First: direct exact matches (dictionary key equals query)
+            for (const e of entries) {
+                if (e._key === queryLower) {
+                    allEntries.push(e);
+                    seenWords.add(e.word + e.pos);
+                }
+            }
+
+            // Second: verb form exact matches (form equals query)
+            for (const note of formNotes) {
+                if (note.form === queryLower) {
+                    for (const e of verbEntries) {
+                        const key = e.word + e.pos;
+                        if (!seenWords.has(key)) {
+                            allEntries.push(e);
+                            seenWords.add(key);
+                        }
+                    }
+                }
+            }
+
+            // Third: direct non-exact matches (normalized match)
+            for (const e of entries) {
+                const key = e.word + e.pos;
+                if (!seenWords.has(key)) {
+                    allEntries.push(e);
+                    seenWords.add(key);
+                }
+            }
+
+            // Fourth: remaining verb form matches
+            for (const e of verbEntries) {
+                const key = e.word + e.pos;
+                if (!seenWords.has(key)) {
+                    allEntries.push(e);
+                    seenWords.add(key);
+                }
+            }
 
             if (allEntries.length > 0) {
                 let html = '';
@@ -904,11 +958,11 @@
                 return;
             }
 
-            // Check for exact match first
+            // Check for match (just to know if we should search or show suggestions)
             const match = findWord(query) || findForm(query);
             if (match) {
                 hideSuggestions();
-                doSearch(match);
+                doSearch(query);  // Pass original query, not matched key
             } else {
                 // Show suggestions while typing
                 const matches = getSuggestions(query);

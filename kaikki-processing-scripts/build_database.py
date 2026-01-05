@@ -137,6 +137,14 @@ def build_database(input_path: Path, output_path: Path, lang_code: str):
             if senses and all('abbreviation' in s.get('glosses', [''])[0].lower() for s in senses):
                 continue
 
+            # Skip entries where all senses are obsolete
+            def is_obsolete(sense):
+                gloss = sense.get('glosses', [''])[0].lower()
+                tags = [t.lower() for t in sense.get('tags', [])]
+                return 'obsolete' in gloss or 'obsolete' in tags
+            if senses and all(is_obsolete(s) for s in senses):
+                continue
+
             # Skip "form-of" entries (e.g., "vis" as verb form of vivre)
             # These just say "inflection of X" rather than actual definitions
             # But keep form-of for determiners and pronouns (vos, mes, ceux, etc.)

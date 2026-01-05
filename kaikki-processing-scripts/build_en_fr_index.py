@@ -48,21 +48,31 @@ ENGLISH_STOPWORDS = {
 def extract_english_words(gloss):
     """Extract meaningful English words from a gloss."""
     # Remove parenthetical content like "(something)"
-    gloss = re.sub(r'\([^)]*\)', '', gloss)
+    gloss_clean = re.sub(r'\([^)]*\)', '', gloss)
     # Remove quotes
-    gloss = re.sub(r'["\']', '', gloss)
+    gloss_clean = re.sub(r'["\']', '', gloss_clean)
     # Split on common delimiters
-    gloss = re.sub(r'[,;:]', ' ', gloss)
+    gloss_clean = re.sub(r'[,;:]', ' ', gloss_clean)
+
+    gloss_words = gloss_clean.split()
 
     words = []
-    for word in gloss.lower().split():
+    for i, word in enumerate(gloss_words):
+        original_word = word  # Keep case for proper noun check
+        word = word.lower()
         # Skip very short words
         if len(word) < 2:
             continue
         # Clean punctuation
         word = re.sub(r'[^a-z]', '', word)
-        # Skip stopwords
-        if word in ENGLISH_STOPWORDS:
+        # Skip stopwords UNLESS it's a capitalized proper noun (e.g., "May" the month)
+        # Detect proper nouns: capitalized AND either alone or all other words are lowercase
+        is_proper_noun = (
+            original_word and
+            original_word[0].isupper() and
+            len(gloss_words) == 1  # Single-word gloss like "May"
+        )
+        if word in ENGLISH_STOPWORDS and not is_proper_noun:
             continue
         if len(word) >= 2:
             words.append(word)

@@ -29,8 +29,8 @@ ENGLISH_STOPWORDS = {
     # Conjunctions
     'and', 'or', 'but', 'if', 'than', 'as', 'so', 'yet', 'nor',
     'whether', 'either', 'neither', 'both',
-    # Pronouns
-    'it', 'its', 'he', 'she', 'they', 'we', 'who', 'which', 'what',
+    # Pronouns (but keep who→qui, what→quoi, which→lequel)
+    'it', 'its', 'he', 'she', 'they', 'we',
     # Auxiliary/modal verbs - conjugated forms are noise, but keep base forms
     # (people search "be" for être, "have" for avoir, "do" for faire)
     'is', 'are', 'was', 'were', 'been', 'being',  # but keep 'be'

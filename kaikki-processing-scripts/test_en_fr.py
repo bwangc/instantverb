@@ -162,6 +162,7 @@ def test_word_categories(index):
         'body': ['head', 'eye', 'ear', 'nose', 'mouth', 'hand', 'foot'],
         'family': ['mother', 'father', 'brother', 'sister', 'son', 'daughter'],
         'time_adverbs': ['today', 'tomorrow', 'yesterday', 'always', 'never', 'now', 'soon'],
+        'questions': ['who', 'what', 'which', 'where', 'when', 'why', 'how'],
     }
 
     failures = []

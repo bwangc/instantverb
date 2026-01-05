@@ -37,9 +37,9 @@ ENGLISH_STOPWORDS = {
     'has', 'had', 'having',  # but keep 'have'
     'does', 'did', 'doing', 'done',  # but keep 'do'
     'will', 'would', 'shall', 'should', 'may', 'might', 'must', 'can', 'could',
-    # Common adverbs in explanations
+    # Common adverbs in explanations (but keep 'always'→toujours, 'never'→jamais)
     'not', 'also', 'often', 'usually', 'especially', 'particularly',
-    'generally', 'typically', 'sometimes', 'always', 'never',
+    'generally', 'typically', 'sometimes',
     # Other noise words
     'such', 'some', 'any', 'each', 'every', 'other', 'another',
     'up', 'out', 'off',  # phrasal verb particles

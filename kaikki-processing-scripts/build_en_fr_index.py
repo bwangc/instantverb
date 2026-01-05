@@ -394,6 +394,14 @@ def main():
     print("Sorting and deduplicating...")
     final_index = {}
     for en_word, fr_list in en_to_fr.items():
+        # Skip junk English entries
+        # - Very long words (often concatenated or URL fragments)
+        # - Entries that look like URLs or file paths
+        if len(en_word) > 30:
+            continue
+        if 'www' in en_word or 'pdf' in en_word or 'http' in en_word:
+            continue
+
         # Group by French word, keep max score
         best_scores = {}
         for fr_word, score in fr_list:

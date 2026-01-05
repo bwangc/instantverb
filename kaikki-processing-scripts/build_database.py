@@ -16,6 +16,12 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 
+# Words missing proper offensive tags in source data
+# These have slurs as glosses but aren't tagged appropriately
+MISSING_OFFENSIVE_TAGS = {
+    'boucaque': ['ethnic', 'offensive', 'slur'],
+}
+
 def simplify_entry(entry: dict) -> dict:
     """Extract only the fields we need for the dictionary."""
     result = {
@@ -171,6 +177,15 @@ def build_database(input_path: Path, output_path: Path, lang_code: str):
 
             simplified = simplify_entry(entry)
             if simplified.get('senses'):  # Only keep entries with definitions
+                # Add missing offensive tags for known problematic words
+                if word in MISSING_OFFENSIVE_TAGS:
+                    for sense in simplified['senses']:
+                        if 'tags' not in sense:
+                            sense['tags'] = []
+                        for tag in MISSING_OFFENSIVE_TAGS[word]:
+                            if tag not in sense['tags']:
+                                sense['tags'].append(tag)
+
                 words[word].append(simplified)
                 count += 1
 

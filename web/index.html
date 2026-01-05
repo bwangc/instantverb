@@ -116,15 +116,18 @@
         .status {
             font-size: 0.8rem;
             color: #666;
-            margin-top: 12px;
-            height: 20px;
+            margin-top: 8px;
+        }
+
+        .status:empty {
+            display: none;
         }
 
         .status.ready { color: #4ade80; }
         .status.loading { color: #a5b4fc; }
 
         #result {
-            margin-top: 40px;
+            margin-top: 20px;
             width: 100%;
             max-width: 700px;
         }
@@ -341,8 +344,7 @@
                 formAudio = await audioRes.json();
                 wordList = Object.keys(dict.words);  // Preserves frequency order
                 isReady = true;
-                status.textContent = '';
-                status.className = 'status';
+                status.style.display = 'none';
 
                 // If user already typed something, search now
                 if (search.value.trim()) {
@@ -432,6 +434,12 @@
                     entries.push(...dict.words[word]);
                 }
             }
+            // Sort: lowercase words first
+            entries.sort((a, b) => {
+                const aLower = a.word[0] === a.word[0].toLowerCase() ? 0 : 1;
+                const bLower = b.word[0] === b.word[0].toLowerCase() ? 0 : 1;
+                return aLower - bLower;
+            });
 
             let verbEntries = [];
             let formNotes = [];  // Array of {form, audioUrl, infList}

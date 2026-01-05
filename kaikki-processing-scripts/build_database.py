@@ -37,7 +37,8 @@ def normalize_tags(tags: list) -> list:
         else:
             result.append(tag)
 
-    # Gender tags first, then others
+    # Gender tags first (m before f), then others
+    gender_tags.sort(key=lambda x: 0 if x == 'm' else 1)
     return gender_tags + result
 
 def simplify_entry(entry: dict) -> dict:

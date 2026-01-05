@@ -31,7 +31,7 @@ def extract_english_words(gloss):
         # Skip very short words and common particles
         if len(word) < 2:
             continue
-        if word in ('to', 'a', 'an', 'the', 'of', 'or', 'be', 'is', 'as', 'in', 'on', 'at', 'by', 'for', 'it', 'up'):
+        if word in ('to', 'a', 'an', 'the', 'of', 'or', 'as', 'in', 'on', 'at', 'by', 'for', 'it', 'up'):
             continue
         # Clean punctuation
         word = re.sub(r'[^a-z]', '', word)
@@ -111,10 +111,11 @@ def main():
                         f'^to {en_word}[,;: (]',  # "to speak, talk" or "to see (visually)"
                         f'^to {en_word}$',         # just "to speak"
                     ]
-                    # Exclude reflexive patterns and phrasal verbs
-                    # "to see oneself", "to find out", "to give up", "to find each other" etc.
+                    # Exclude reflexive patterns, phrasal verbs, and verb+gerund
+                    # "to see oneself", "to find out", "to give up", "to find each other", "to stop carrying" etc.
                     phrasal = re.match(f'^to {en_word} (oneself|yourself|himself|herself|itself|ourselves|themselves|each other|one another|out|up|down|in|off|on|away|back|over|around|about|through)\\b', gloss_lower)
-                    if not phrasal and any(re.match(p, gloss_lower) for p in start_patterns):
+                    gerund = re.match(f'^to {en_word} \\w+ing\\b', gloss_lower)
+                    if not phrasal and not gerund and any(re.match(p, gloss_lower) for p in start_patterns):
                         # Extra bonus if this is the ONLY meaning (not "to eat; to drink")
                         # Semicolons separate different meanings, commas are usually synonyms
                         # But semicolons inside parentheses are just elaboration
